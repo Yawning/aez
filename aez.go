@@ -42,8 +42,8 @@ func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 
 type eState struct {
 	I, J, L  [16]byte
-	aes10Key [4 * 11]uint32
-	aes4Key  [4 * 5]uint32
+	aes10Key [4 * 10]uint32
+	aes4Key  [4 * 4]uint32
 }
 
 func (e *eState) init(k []byte) {
@@ -65,15 +65,15 @@ func (e *eState) init(k []byte) {
 	lK := keys[8:12]
 
 	// AES10
-	copy(e.aes10Key[4:], keys[:])  // I J L
-	copy(e.aes10Key[16:], keys[:]) // I J L
-	copy(e.aes10Key[28:], keys[:]) // I J L
-	copy(e.aes10Key[40:], iK)      // I
+	copy(e.aes10Key[0:], keys[:])  // I J L
+	copy(e.aes10Key[12:], keys[:]) // I J L
+	copy(e.aes10Key[24:], keys[:]) // I J L
+	copy(e.aes10Key[36:], iK)      // I
 
 	// AES4
-	copy(e.aes4Key[4:], jK)  // J
-	copy(e.aes4Key[8:], iK)  // I
-	copy(e.aes4Key[12:], lK) // L
+	copy(e.aes4Key[0:], jK) // J
+	copy(e.aes4Key[4:], iK) // I
+	copy(e.aes4Key[8:], lK) // L
 }
 
 func (e *eState) reset() {

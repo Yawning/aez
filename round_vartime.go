@@ -279,21 +279,20 @@ var te3 = [256]uint32{
 	0xb0b0cb7b, 0x5454fca8, 0xbbbbd66d, 0x16163a2c,
 }
 
-// roundVartime is the AES encrypt direction round function, that always
-// does the MixColumns step.  As the name implies, it is NOT constant time.
+// roundVartime is the AES encrypt direction round function, that skips the
+// initial round key, and always does the MixColumns step.
 func roundVartime(rk []uint32, block *[16]byte, rounds int) {
 	var t0, t1, t2, t3 uint32
 
 	// map byte array block to cipher state
 	// and add initial round key:
-	s0 := binary.BigEndian.Uint32(block[0:]) ^ rk[0]
-	s1 := binary.BigEndian.Uint32(block[4:]) ^ rk[1]
-	s2 := binary.BigEndian.Uint32(block[8:]) ^ rk[2]
-	s3 := binary.BigEndian.Uint32(block[12:]) ^ rk[3]
-	rkOff := 4
+	s0 := binary.BigEndian.Uint32(block[0:])
+	s1 := binary.BigEndian.Uint32(block[4:])
+	s2 := binary.BigEndian.Uint32(block[8:])
+	s3 := binary.BigEndian.Uint32(block[12:])
 
-	// This always does the MixColumns, because that's what AEZ needs.
-	for r := rounds; r > 0; r-- {
+	for r := 0; r < rounds; r++ {
+		rkOff := r * 4
 		t0 = te0[uint8(s0>>24)] ^
 			te1[uint8(s1>>16)] ^
 			te2[uint8(s2>>8)] ^
@@ -322,7 +321,6 @@ func roundVartime(rk []uint32, block *[16]byte, rounds int) {
 		s1 = t1
 		s2 = t2
 		s3 = t3
-		rkOff += 4
 	}
 
 	binary.BigEndian.PutUint32(block[0:], s0)
