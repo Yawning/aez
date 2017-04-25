@@ -10,7 +10,6 @@ package aez
 
 import (
 	"crypto/subtle"
-	"encoding/binary"
 
 	"github.com/minio/blake2b-simd"
 )
@@ -21,7 +20,8 @@ const (
 )
 
 var (
-	extractBlake2Cfg = &blake2b.Config{Size: extractedKeySize}
+	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
+	newAes           aesImplCtor = newRoundVartime
 )
 
 func extract(k []byte, extractedKey *[extractedKeySize]byte) {
@@ -40,10 +40,16 @@ func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 	}
 }
 
+type aesImpl interface {
+	Reset()
+	Rounds(*[blockSize]byte, int)
+}
+
+type aesImplCtor func(*[extractedKeySize]byte) aesImpl
+
 type eState struct {
-	I, J, L  [16]byte
-	aes10Key [4 * 10]uint32
-	aes4Key  [4 * 4]uint32
+	I, J, L [16]byte
+	aes     aesImpl
 }
 
 func (e *eState) init(k []byte) {
@@ -55,33 +61,14 @@ func (e *eState) init(k []byte) {
 	copy(e.J[:], extractedKey[16:32])
 	copy(e.L[:], extractedKey[32:48])
 
-	// Convert the keys to uint32s, after "correcting" them to a format
-	// suitable for the AES round function.
-	var keys [12]uint32
-	defer memwipeU32(keys[:])
-	correctKey(extractedKey[:], keys[:])
-	iK := keys[0:4]
-	jK := keys[4:8]
-	lK := keys[8:12]
-
-	// AES10
-	copy(e.aes10Key[0:], keys[:])  // I J L
-	copy(e.aes10Key[12:], keys[:]) // I J L
-	copy(e.aes10Key[24:], keys[:]) // I J L
-	copy(e.aes10Key[36:], iK)      // I
-
-	// AES4
-	copy(e.aes4Key[0:], jK) // J
-	copy(e.aes4Key[4:], iK) // I
-	copy(e.aes4Key[8:], lK) // L
+	e.aes = newAes(&extractedKey)
 }
 
 func (e *eState) reset() {
 	memwipe(e.I[:])
 	memwipe(e.J[:])
 	memwipe(e.L[:])
-	memwipeU32(e.aes10Key[:])
-	memwipeU32(e.aes4Key[:])
+	e.aes.Reset()
 }
 
 // E is the tweakable block cipher E() from the specification.  All the
@@ -98,7 +85,7 @@ func (e *eState) E(j int, i uint, src *[blockSize]byte, dst []byte) {
 	if j == -1 { // AES10()
 		multBlock(i, &e.L, &delta)
 		xorBytes(delta[:], src[:], buf[:])
-		roundVartime(e.aes10Key[:], &buf, 10)
+		e.aes.Rounds(&buf, 10)
 	} else { // AES4
 		var I [blockSize]byte
 		defer memwipe(I[:])
@@ -113,18 +100,9 @@ func (e *eState) E(j int, i uint, src *[blockSize]byte, dst []byte) {
 		}
 		xorBytes(delta[:], I[:], delta[:])
 		xorBytes(delta[:], src[:], buf[:])
-		roundVartime(e.aes4Key[:], &buf, 4)
+		e.aes.Rounds(&buf, 4)
 	}
 	copy(dst[:], buf[:])
-}
-
-// correctKey adjusts our constructed round keys to be compatible with
-// rijndael-alg-fst.
-func correctKey(eK []byte, k []uint32) {
-	for i := range k {
-		off := i * 4
-		k[i] = binary.BigEndian.Uint32(eK[off:])
-	}
 }
 
 func multBlock(x uint, src, dst *[blockSize]byte) {

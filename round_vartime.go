@@ -279,10 +279,56 @@ var te3 = [256]uint32{
 	0xb0b0cb7b, 0x5454fca8, 0xbbbbd66d, 0x16163a2c,
 }
 
-// roundVartime is the AES encrypt direction round function, that skips the
-// initial round key, and always does the MixColumns step.
-func roundVartime(rk []uint32, block *[16]byte, rounds int) {
+type roundVartime struct {
+	aes10Key [4 * 10]uint32
+	aes4Key  [4 * 4]uint32
+}
+
+func newRoundVartime(extractedKey *[extractedKeySize]byte) aesImpl {
+	rk := new(roundVartime)
+
+	// Convert the keys to uint32s, after "correcting" them to a format
+	// suitable for the AES round function.
+	var keys [12]uint32
+	defer memwipeU32(keys[:])
+	for i := range keys {
+		off := i * 4
+		keys[i] = binary.BigEndian.Uint32(extractedKey[off:])
+	}
+	iK := keys[0:4]
+	jK := keys[4:8]
+	lK := keys[8:12]
+
+	// AES10
+	copy(rk.aes10Key[0:], keys[:])  // I J L
+	copy(rk.aes10Key[12:], keys[:]) // I J L
+	copy(rk.aes10Key[24:], keys[:]) // I J L
+	copy(rk.aes10Key[36:], iK)      // I
+
+	// AES4
+	copy(rk.aes4Key[0:], jK) // J
+	copy(rk.aes4Key[4:], iK) // I
+	copy(rk.aes4Key[8:], lK) // L
+
+	return rk
+}
+
+func (rk *roundVartime) Reset() {
+	memwipeU32(rk.aes10Key[:])
+	memwipeU32(rk.aes4Key[:])
+}
+
+func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 	var t0, t1, t2, t3 uint32
+	var keys []uint32
+	switch rounds {
+	case 4:
+		keys = rk.aes4Key[:]
+	case 10:
+		keys = rk.aes10Key[:]
+	default:
+		panic("aez: roundVartime.Rounds(): round count")
+	}
 
 	// map byte array block to cipher state
 	// and add initial round key:
@@ -297,25 +343,25 @@ func roundVartime(rk []uint32, block *[16]byte, rounds int) {
 			te1[uint8(s1>>16)] ^
 			te2[uint8(s2>>8)] ^
 			te3[uint8(s3)] ^
-			rk[rkOff+0]
+			keys[rkOff+0]
 
 		t1 = te0[uint8(s1>>24)] ^
 			te1[uint8(s2>>16)] ^
 			te2[uint8(s3>>8)] ^
 			te3[uint8(s0)] ^
-			rk[rkOff+1]
+			keys[rkOff+1]
 
 		t2 = te0[uint8(s2>>24)] ^
 			te1[uint8(s3>>16)] ^
 			te2[uint8(s0>>8)] ^
 			te3[uint8(s1)] ^
-			rk[rkOff+2]
+			keys[rkOff+2]
 
 		t3 = te0[uint8(s3>>24)] ^
 			te1[uint8(s0>>16)] ^
 			te2[uint8(s1>>8)] ^
 			te3[uint8(s2)] ^
-			rk[rkOff+3]
+			keys[rkOff+3]
 
 		s0 = t0
 		s1 = t1
@@ -327,4 +373,5 @@ func roundVartime(rk []uint32, block *[16]byte, rounds int) {
 	binary.BigEndian.PutUint32(block[4:], s1)
 	binary.BigEndian.PutUint32(block[8:], s2)
 	binary.BigEndian.PutUint32(block[12:], s3)
+
 }
