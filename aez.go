@@ -87,9 +87,13 @@ func (e *eState) reset() {
 // E is the tweakable block cipher E() from the specification.  All the
 // scary timing side-channel demons live here, in the call to the AES round
 // function.
-func (e *eState) E(j int, i uint, src, dst *[blockSize]byte) {
+func (e *eState) E(j int, i uint, src *[blockSize]byte, dst []byte) {
 	var buf, delta [blockSize]byte
 	defer memwipe(delta[:])
+
+	if len(dst) != blockSize {
+		panic("aez: E: len(dst)")
+	}
 
 	if j == -1 { // AES10()
 		multBlock(i, &e.L, &delta)
@@ -130,7 +134,7 @@ func multBlock(x uint, src, dst *[blockSize]byte) {
 
 	copy(t[:], src[:])
 	for x != 0 {
-		if x&1 != 0 {
+		if x&1 != 0 { // This is fine, x isn't data/secret dependent.
 			xorBytes(r[:], t[:], r[:])
 		}
 		doubleBlock(&t)
@@ -147,6 +151,31 @@ func doubleBlock(p *[blockSize]byte) {
 	// p[15] = (p[15] << 1) ^ ((tmp >> 7)?135:0);
 	cf := subtle.ConstantTimeByteEq(tmp>>7, 1)
 	p[15] = (p[15] << 1) ^ byte(subtle.ConstantTimeSelect(cf, 135, 0))
+}
+
+func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
+	var buf, ctr [blockSize]byte
+	off := 0
+	for tau >= 16 {
+		i := 15
+		xorBytes(delta[:], ctr[:], buf[:])
+		e.E(-1, 3, &buf, result[off:off+16])
+		for { // ctr += 1
+			ctr[i]++
+			i--
+			if ctr[i+1] != 0 {
+				break
+			}
+		}
+
+		tau -= 16
+		off += 16
+	}
+	if tau > 0 {
+		xorBytes(delta[:], ctr[:], buf[:])
+		e.E(-1, 3, &buf, buf[:])
+		copy(result[off:], buf[:])
+	}
 }
 
 func memwipe(b []byte) {
