@@ -330,13 +330,13 @@ func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 		panic("aez: roundVartime.Rounds(): round count")
 	}
 
-	// map byte array block to cipher state
-	// and add initial round key:
+	// Skip adding the initial round key.
 	s0 := binary.BigEndian.Uint32(block[0:])
 	s1 := binary.BigEndian.Uint32(block[4:])
 	s2 := binary.BigEndian.Uint32(block[8:])
 	s3 := binary.BigEndian.Uint32(block[12:])
 
+	// Always do MixColumns.
 	for r := 0; r < rounds; r++ {
 		rkOff := r * 4
 		t0 = te0[uint8(s0>>24)] ^
@@ -373,5 +373,4 @@ func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 	binary.BigEndian.PutUint32(block[4:], s1)
 	binary.BigEndian.PutUint32(block[8:], s2)
 	binary.BigEndian.PutUint32(block[12:], s3)
-
 }
