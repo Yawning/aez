@@ -75,17 +75,20 @@ func (e *eState) reset() {
 // E is the tweakable block cipher E() from the specification.  All the
 // scary timing side-channel demons live here, in the call to the AES round
 // function.
-func (e *eState) E(j int, i uint, src *[blockSize]byte, dst []byte) {
+func (e *eState) E(j int, i uint, src, dst []byte) {
 	var buf, delta [blockSize]byte
 	defer memwipe(delta[:])
 
+	if len(src) != blockSize {
+		panic("aez: E: len(src)")
+	}
 	if len(dst) != blockSize {
 		panic("aez: E: len(dst)")
 	}
 
 	if j == -1 { // AES10()
 		multBlock(i, &e.L, &delta)
-		xorBytes(delta[:], src[:], buf[:])
+		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 10)
 	} else { // AES4
 		var I [blockSize]byte
@@ -100,7 +103,7 @@ func (e *eState) E(j int, i uint, src *[blockSize]byte, dst []byte) {
 			multBlock(2, &I, &I)
 		}
 		xorBytes(delta[:], I[:], delta[:])
-		xorBytes(delta[:], src[:], buf[:])
+		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 4)
 	}
 	copy(dst[:], buf[:])
@@ -143,17 +146,14 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 
 	// Initialize sum with hash of tau
 	binary.BigEndian.PutUint32(buf[12:], uint32(tau))
-	e.E(3, 1, &buf, sum[:])
-
-	// XXX: Could change the E prototype and eliminate some copies.
+	e.E(3, 1, buf[:], sum[:])
 
 	// Hash nonce, accumulate into sum
 	empty := len(nonce) == 0
 	n := nonce
 	nBytes := len(nonce)
 	for i := uint(1); nBytes >= blockSize; i++ {
-		copy(buf[:], n)
-		e.E(4, i, &buf, buf[:])
+		e.E(4, i, n[:blockSize], buf[:])
 		xorBytes(sum[:], buf[:], sum[:])
 		nBytes -= blockSize
 		n = n[blockSize:]
@@ -162,7 +162,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 		memwipe(buf[:])
 		copy(buf[:], n)
 		buf[nBytes] = 0x80
-		e.E(4, 0, &buf, buf[:])
+		e.E(4, 0, buf[:], buf[:])
 		xorBytes(sum[:], buf[:], sum[:])
 	}
 
@@ -171,8 +171,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 		empty = len(p) == 0
 		bytes := len(p)
 		for i := uint(1); bytes >= blockSize; i++ {
-			copy(buf[:], p)
-			e.E(5+k, i, &buf, buf[:])
+			e.E(5+k, i, p[:blockSize], buf[:])
 			xorBytes(sum[:], buf[:], sum[:])
 			bytes -= blockSize
 			p = p[blockSize:]
@@ -181,7 +180,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 			memwipe(buf[:])
 			copy(buf[:], p)
 			buf[bytes] = 0x80
-			e.E(5+k, 0, &buf, buf[:])
+			e.E(5+k, 0, buf[:], buf[:])
 			xorBytes(sum[:], buf[:], sum[:])
 		}
 	}
@@ -197,7 +196,7 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	for tau >= blockSize {
 		i := 15
 		xorBytes(delta[:], ctr[:], buf[:])
-		e.E(-1, 3, &buf, result[off:off+blockSize])
+		e.E(-1, 3, buf[:], result[off:off+blockSize])
 		for { // ctr += 1
 			ctr[i]++
 			i--
@@ -211,7 +210,7 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	}
 	if tau > 0 {
 		xorBytes(delta[:], ctr[:], buf[:])
-		e.E(-1, 3, &buf, buf[:])
+		e.E(-1, 3, buf[:], buf[:])
 		copy(result[off:], buf[:])
 	}
 }
@@ -221,7 +220,81 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d int, out []byte) {
 }
 
 func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d int, out []byte) {
+	var rounds, i, j uint
+	var buf [2 * blockSize]byte
+	var L, R [blockSize]byte
+	var step int
+	mask, pad := byte(0x00), byte(0x80)
 
+	i = 7
+	inBytes := len(in)
+	if inBytes == 1 {
+		rounds = 24
+	} else if inBytes == 2 {
+		rounds = 16
+	} else if inBytes < 16 {
+		rounds = 10
+	} else {
+		i, rounds = 6, 8
+	}
+
+	// Split (inbytes*8)/2 bits into L and R. Beware: May end in nibble.
+	copy(L[:], in[:(inBytes+1)/2])
+	copy(R[:], in[inBytes/2:inBytes/2+(inBytes+1)/2])
+	if inBytes&1 != 0 { // Must shift R left by half a byte
+		for k := uint(0); k < uint(inBytes/2); k++ {
+			R[k] = (R[k] << 4) | (R[k+1] >> 4)
+		}
+		R[inBytes/2] = R[inBytes/2] << 4
+		pad = 0x08
+		mask = 0xf0
+	}
+	if d != 0 {
+		if inBytes < 16 {
+			memwipe(buf[:blockSize])
+			copy(buf[:], in)
+			buf[0] |= 0x80
+			xorBytes(delta[:blockSize], buf[:], buf[:])
+			e.E(0, 3, buf[:blockSize], buf[:blockSize])
+			L[0] ^= (buf[0] & 0x80)
+		}
+		j, step = rounds-1, -1
+	} else {
+		step = 1
+	}
+	for k := uint(0); k < rounds/2; k, j = k+1, uint(int(j)+2*step) {
+		memwipe(buf[:blockSize])
+		copy(buf[:], R[:(inBytes+1)/2])
+		buf[inBytes/2] = (buf[inBytes/2] & mask) | pad
+		xorBytes(buf[:blockSize], delta[:], buf[:blockSize])
+		buf[15] ^= byte(j)
+		e.E(0, i, buf[:blockSize], buf[:blockSize])
+		xorBytes(L[:], buf[:blockSize], L[:blockSize])
+
+		memwipe(buf[:blockSize])
+		copy(buf[:], L[:(inBytes+1)/2])
+		buf[inBytes/2] = (buf[inBytes/2] & mask) | pad
+		xorBytes(buf[:blockSize], delta[:], buf[:blockSize])
+		buf[15] ^= byte(int(j) + step)
+		e.E(0, i, buf[:blockSize], buf[:blockSize])
+		xorBytes(R[:], buf[:blockSize], R[:blockSize])
+	}
+	copy(buf[:], R[:inBytes/2])
+	copy(buf[inBytes/2:], L[:(inBytes+1)/2])
+	if inBytes&1 != 0 {
+		for k := inBytes - 1; k > inBytes/2; k-- {
+			buf[k] = (buf[k] >> 4) | (buf[k-1] << 4)
+		}
+		buf[inBytes/2] = (L[0] >> 4) | (R[inBytes/2] & 0xf0)
+	}
+	copy(out, buf[:inBytes])
+	if inBytes < 16 && d == 0 {
+		memwipe(buf[inBytes:blockSize])
+		buf[0] |= 0x80
+		xorBytes(delta[:], buf[:blockSize], buf[:blockSize])
+		e.E(0, 3, buf[:blockSize], buf[:blockSize])
+		out[0] ^= buf[0] & 0x80
+	}
 }
 
 func (e *eState) encipher(delta *[blockSize]byte, in, out []byte) {

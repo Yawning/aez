@@ -709,11 +709,10 @@ func TestE(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var vSrc, dst [blockSize]byte
-		copy(vSrc[:], vecSrc)
+		var dst [blockSize]byte
 
 		e.init(vecK)
-		e.E(vec.j, vec.i, &vSrc, dst[:])
+		e.E(vec.j, vec.i, vecSrc, dst[:])
 		assertEqual(t, i, vecDst, dst[:])
 	}
 }
