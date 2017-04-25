@@ -1,4 +1,10 @@
 ### aez - AEZ (Duh)
 #### Yawning Angel (yawning at schwanenlied dot me)
 
-This isn't finished, don't use it yet.
+This is an implementation of [AEZ](http://web.cs.ucdavis.edu/~rogaway/aez/),
+primarily based on the reference code.  It appears to be correct and the
+output matches [test vectors](https://github.com/nmathewson/aez_test_vectors)
+derived with the reference code.
+
+It is really slow.
+It is not constant time (So basically, don't use it).
