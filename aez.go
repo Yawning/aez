@@ -10,6 +10,7 @@ package aez
 
 import (
 	"crypto/subtle"
+	"encoding/binary"
 
 	"github.com/minio/blake2b-simd"
 )
@@ -131,8 +132,65 @@ func doubleBlock(p *[blockSize]byte) {
 	p[15] = (p[15] << 1) ^ byte(subtle.ConstantTimeSelect(cf, 135, 0))
 }
 
+func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
+	var buf, sum [blockSize]byte
+	defer memwipe(buf[:])
+	defer memwipe(sum[:])
+
+	if len(result) != blockSize {
+		panic("aez: Hash: len(result)")
+	}
+
+	// Initialize sum with hash of tau
+	binary.BigEndian.PutUint32(buf[12:], uint32(tau))
+	e.E(3, 1, &buf, sum[:])
+
+	// Hash nonce, accumulate into sum
+	empty := len(nonce) == 0
+	n := nonce
+	nBytes := len(nonce)
+	for i := uint(1); nBytes >= 16; i++ {
+		copy(buf[:], n)
+		e.E(4, i, &buf, buf[:])
+		xorBytes(sum[:], buf[:], sum[:])
+		nBytes -= 16
+		n = n[16:]
+	}
+	if nBytes > 0 || empty {
+		memwipe(buf[:])
+		copy(buf[:], n)
+		buf[nBytes] = 0x80
+		e.E(4, 0, &buf, buf[:])
+		xorBytes(sum[:], buf[:], sum[:])
+	}
+
+	// Hash each vector element, accumulate into sum
+	for k, p := range ad {
+		empty = len(p) == 0
+		bytes := len(p)
+		for i := uint(1); bytes >= 16; i++ {
+			copy(buf[:], p)
+			e.E(5+k, i, &buf, buf[:])
+			xorBytes(sum[:], buf[:], sum[:])
+			bytes -= 16
+			p = p[16:]
+		}
+		if bytes > 0 || empty {
+			memwipe(buf[:])
+			copy(buf[:], p)
+			buf[bytes] = 0x80
+			e.E(5+k, 0, &buf, buf[:])
+			xorBytes(sum[:], buf[:], sum[:])
+		}
+	}
+
+	copy(result, sum[:])
+}
+
 func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	var buf, ctr [blockSize]byte
+	defer memwipe(buf[:])
+
 	off := 0
 	for tau >= 16 {
 		i := 15
@@ -157,12 +215,6 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 }
 
 func memwipe(b []byte) {
-	for i := range b {
-		b[i] = 0
-	}
-}
-
-func memwipeU32(b []uint32) {
 	for i := range b {
 		b[i] = 0
 	}

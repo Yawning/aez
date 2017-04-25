@@ -374,3 +374,9 @@ func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 	binary.BigEndian.PutUint32(block[8:], s2)
 	binary.BigEndian.PutUint32(block[12:], s3)
 }
+
+func memwipeU32(b []uint32) {
+	for i := range b {
+		b[i] = 0
+	}
+}
