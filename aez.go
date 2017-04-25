@@ -145,16 +145,18 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	binary.BigEndian.PutUint32(buf[12:], uint32(tau))
 	e.E(3, 1, &buf, sum[:])
 
+	// XXX: Could change the E prototype and eliminate some copies.
+
 	// Hash nonce, accumulate into sum
 	empty := len(nonce) == 0
 	n := nonce
 	nBytes := len(nonce)
-	for i := uint(1); nBytes >= 16; i++ {
+	for i := uint(1); nBytes >= blockSize; i++ {
 		copy(buf[:], n)
 		e.E(4, i, &buf, buf[:])
 		xorBytes(sum[:], buf[:], sum[:])
-		nBytes -= 16
-		n = n[16:]
+		nBytes -= blockSize
+		n = n[blockSize:]
 	}
 	if nBytes > 0 || empty {
 		memwipe(buf[:])
@@ -168,12 +170,12 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	for k, p := range ad {
 		empty = len(p) == 0
 		bytes := len(p)
-		for i := uint(1); bytes >= 16; i++ {
+		for i := uint(1); bytes >= blockSize; i++ {
 			copy(buf[:], p)
 			e.E(5+k, i, &buf, buf[:])
 			xorBytes(sum[:], buf[:], sum[:])
-			bytes -= 16
-			p = p[16:]
+			bytes -= blockSize
+			p = p[blockSize:]
 		}
 		if bytes > 0 || empty {
 			memwipe(buf[:])
@@ -192,10 +194,10 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	defer memwipe(buf[:])
 
 	off := 0
-	for tau >= 16 {
+	for tau >= blockSize {
 		i := 15
 		xorBytes(delta[:], ctr[:], buf[:])
-		e.E(-1, 3, &buf, result[off:off+16])
+		e.E(-1, 3, &buf, result[off:off+blockSize])
 		for { // ctr += 1
 			ctr[i]++
 			i--
@@ -204,14 +206,54 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 			}
 		}
 
-		tau -= 16
-		off += 16
+		tau -= blockSize
+		off += blockSize
 	}
 	if tau > 0 {
 		xorBytes(delta[:], ctr[:], buf[:])
 		e.E(-1, 3, &buf, buf[:])
 		copy(result[off:], buf[:])
 	}
+}
+
+func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d int, out []byte) {
+
+}
+
+func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d int, out []byte) {
+
+}
+
+func (e *eState) encipher(delta *[blockSize]byte, in, out []byte) {
+	if len(in) == 0 {
+		return
+	}
+
+	if len(in) < 32 {
+		e.aezTiny(delta, in, 0, out)
+	} else {
+		e.aezCore(delta, in, 0, out)
+	}
+}
+
+func Encrypt(key []byte, nonce []byte, ad [][]byte, tau int, m []byte) []byte {
+	var delta [blockSize]byte
+	x := make([]byte, tau+len(m))
+
+	// Unlike the upstream code, this calculates and caches the various keys.
+	var e eState
+	defer e.reset()
+
+	e.init(key)
+	e.aezHash(nonce, ad, tau*8, delta[:])
+	if len(m) == 0 {
+		e.aezPRF(&delta, tau, x)
+	} else {
+		copy(x, m)
+		e.encipher(&delta, x, x)
+	}
+
+	return x
 }
 
 func memwipe(b []byte) {
