@@ -9,6 +9,7 @@ package aez
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 )
@@ -1925,4 +1926,69 @@ func assertEqual(t *testing.T, idx int, expected, actual []byte) {
 		t.Errorf("actual: %s", hex.Dump(actual))
 		t.FailNow()
 	}
+}
+
+var benchOutput []byte
+
+func doBenchEncrypt(b *testing.B, n int) {
+	var key [extractedKeySize]byte
+	if _, err := rand.Read(key[:]); err != nil {
+		b.Error(err)
+		b.Fail()
+	}
+
+	var nonce [16]byte
+	src := make([]byte, n)
+
+	b.SetBytes(int64(n))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		src = Encrypt(key[:], nonce[:], nil, 16, src[:n])
+	}
+
+	benchOutput = src
+}
+
+func BenchmarkEncrypt_1(b *testing.B) {
+	doBenchEncrypt(b, 1)
+}
+
+func BenchmarkEncrypt_32(b *testing.B) {
+	doBenchEncrypt(b, 32)
+}
+
+func BenchmarkEncrypt_512(b *testing.B) {
+	doBenchEncrypt(b, 512)
+}
+
+func BenchmarkEncrypt_1024(b *testing.B) {
+	doBenchEncrypt(b, 1024)
+}
+
+func BenchmarkEncrypt_2048(b *testing.B) {
+	doBenchEncrypt(b, 2048)
+}
+
+func BenchmarkEncrypt_4096(b *testing.B) {
+	doBenchEncrypt(b, 4096)
+}
+
+func BenchmarkEncrypt_8192(b *testing.B) {
+	doBenchEncrypt(b, 8192)
+}
+
+func BenchmarkEncrypt_16394(b *testing.B) {
+	doBenchEncrypt(b, 16384)
+}
+
+func BenchmarkEncrypt_32768(b *testing.B) {
+	doBenchEncrypt(b, 32768)
+}
+
+func BenchmarkEncrypt_65536(b *testing.B) {
+	doBenchEncrypt(b, 65536)
+}
+
+func BenchmarkEncrypt_1024768(b *testing.B) {
+	doBenchEncrypt(b, 1024768)
 }
