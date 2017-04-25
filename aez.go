@@ -151,11 +151,10 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	// Hash nonce, accumulate into sum
 	empty := len(nonce) == 0
 	n := nonce
-	nBytes := len(nonce)
-	for i := uint(1); nBytes >= blockSize; i++ {
+	nBytes := uint(len(nonce))
+	for i := uint(1); nBytes >= blockSize; i, nBytes = i+1, nBytes-blockSize {
 		e.E(4, i, n[:blockSize], buf[:])
 		xorBytes(sum[:], buf[:], sum[:])
-		nBytes -= blockSize
 		n = n[blockSize:]
 	}
 	if nBytes > 0 || empty {
@@ -169,11 +168,10 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	// Hash each vector element, accumulate into sum
 	for k, p := range ad {
 		empty = len(p) == 0
-		bytes := len(p)
-		for i := uint(1); bytes >= blockSize; i++ {
+		bytes := uint(len(p))
+		for i := uint(1); bytes >= blockSize; i, bytes = i+1, bytes-blockSize {
 			e.E(5+k, i, p[:blockSize], buf[:])
 			xorBytes(sum[:], buf[:], sum[:])
-			bytes -= blockSize
 			p = p[blockSize:]
 		}
 		if bytes > 0 || empty {
@@ -309,11 +307,22 @@ func (e *eState) encipher(delta *[blockSize]byte, in, out []byte) {
 	}
 }
 
+func (e *eState) decipher(delta *[blockSize]byte, in, out []byte) {
+	if len(in) == 0 {
+		return
+	}
+
+	if len(in) < 32 {
+		e.aezTiny(delta, in, 1, out)
+	} else {
+		e.aezCore(delta, in, 1, out)
+	}
+}
+
 func Encrypt(key []byte, nonce []byte, ad [][]byte, tau int, m []byte) []byte {
 	var delta [blockSize]byte
 	x := make([]byte, tau+len(m))
 
-	// Unlike the upstream code, this calculates and caches the various keys.
 	var e eState
 	defer e.reset()
 
@@ -327,6 +336,41 @@ func Encrypt(key []byte, nonce []byte, ad [][]byte, tau int, m []byte) []byte {
 	}
 
 	return x
+}
+
+func Decrypt(key []byte, nonce []byte, ad [][]byte, tau int, c []byte) ([]byte, bool) {
+	var delta [blockSize]byte
+	sum := byte(0)
+	x := make([]byte, len(c))
+
+	if len(c) < tau {
+		return nil, false
+	}
+
+	var e eState
+	defer e.reset()
+
+	e.init(key)
+	e.aezHash(nonce, ad, tau*8, delta[:])
+	if len(c) == tau {
+		e.aezPRF(&delta, tau, x)
+		for i := 0; i < tau; i++ {
+			sum |= x[i] ^ c[i]
+		}
+		x = nil
+	} else {
+		e.decipher(&delta, c, x)
+		for i := 0; i < tau; i++ {
+			sum |= x[len(c)-tau+i]
+		}
+		if sum == 0 {
+			x = x[:len(c)-tau]
+		}
+	}
+	if sum != 0 { // return true if valid, false if invalid
+		return nil, false
+	}
+	return x, true
 }
 
 func memwipe(b []byte) {
