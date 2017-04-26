@@ -92,6 +92,8 @@ type eState struct {
 	doubledI      [16]byte // Running double.
 	doubledI1     [16]byte // Doubled e.I.
 	doubledICount uint
+
+	doubledJ [3][16]byte
 }
 
 func (e *eState) init(k []byte) {
@@ -108,6 +110,10 @@ func (e *eState) init(k []byte) {
 	multBlock(2, &e.doubledI1, &e.doubledI)
 	e.doubledICount = 2
 
+	multBlock(0, &e.J, &e.doubledJ[0])
+	multBlock(1, &e.J, &e.doubledJ[1])
+	multBlock(2, &e.J, &e.doubledJ[2])
+
 	e.aes = newAes(&extractedKey)
 }
 
@@ -117,6 +123,9 @@ func (e *eState) reset() {
 	memwipe(e.L[:])
 	memwipe(e.doubledI[:])
 	memwipe(e.doubledI1[:])
+	for i := range e.doubledJ {
+		memwipe(e.doubledJ[i][:])
+	}
 	e.aes.Reset()
 }
 
@@ -140,7 +149,11 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 	} else { // AES4
 		I := &e.doubledI
 		uj := uint(j)
-		multBlock(uj, &e.J, &delta)
+		if uj < 3 { // We have precomputed common values.
+			copy(delta[:], e.doubledJ[uj][:])
+		} else {
+			multBlock(uj, &e.J, &delta)
+		}
 		multBlock(i%8, &e.L, &buf) // XXX: Cache this too.
 		xorBytes(delta[:], buf[:], delta[:])
 
@@ -175,6 +188,7 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 		// is horrific for performance, since it starts the doubling process
 		// from scratch on each invocation to E.
 		//
+		//   var I [blockSize]byte
 		//   copy(I[:], e.I[:])
 		//   for i = (i + 7) / 8; i > 0; i-- {
 		//     multBlock(2, &I, &I)
