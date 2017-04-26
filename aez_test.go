@@ -1943,7 +1943,17 @@ func doBenchEncrypt(b *testing.B, n int) {
 	b.SetBytes(int64(n))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		src = Encrypt(key[:], nonce[:], nil, 16, src[:n])
+		b.StartTimer()
+		dst := Encrypt(key[:], nonce[:], nil, 16, src[:n])
+		b.StopTimer()
+		dec, ok := Decrypt(key[:], nonce[:], nil, 16, dst)
+		if !ok {
+			b.Fatalf("decrypt failed")
+		}
+		if !bytes.Equal(dec, src) {
+			b.Fatalf("decrypt produced invalid output")
+		}
+		src = dec
 	}
 
 	benchOutput = src
