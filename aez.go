@@ -91,7 +91,7 @@ type eState struct {
 
 	doubledI      [16]byte // Running double.
 	doubledI1     [16]byte // Doubled e.I.
-	doubledICount int64
+	doubledICount uint
 }
 
 func (e *eState) init(k []byte) {
@@ -105,7 +105,8 @@ func (e *eState) init(k []byte) {
 
 	copy(e.doubledI[:], e.I[:])
 	multBlock(2, &e.I, &e.doubledI1)
-	e.doubledICount = -1
+	multBlock(2, &e.doubledI1, &e.doubledI)
+	e.doubledICount = 2
 
 	e.aes = newAes(&extractedKey)
 }
@@ -153,32 +154,26 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 		case 1:
 			copy(I[:], e.doubledI1[:])
 		default:
-			// Start of doubling, or the target went backwards.
-			if e.doubledICount == -1 || e.doubledICount > int64(doubleTarget) {
-				switch doubleTarget {
-				case 0:
-					copy(I[:], e.I[:])
-				case 1:
-					copy(I[:], e.doubledI1[:])
-				default:
-					copy(I[:], e.doubledI1[:])
-					for i = doubleTarget; i > 1; i-- {
-						multBlock(2, &I, &I)
-					}
+			if e.doubledICount > doubleTarget {
+				// The target went backwards, probably the pass 1 -> pass 2
+				// transition.
+				copy(I[:], e.doubledI1[:])
+				for i = doubleTarget; i > 1; i-- {
+					multBlock(2, &I, &I)
 				}
 				copy(e.doubledI[:], I[:])
-				e.doubledICount = int64(doubleTarget)
-			} else if e.doubledICount == int64(doubleTarget) {
+				e.doubledICount = doubleTarget
+			} else if e.doubledICount == doubleTarget {
 				// Cache hit.
 				copy(I[:], e.doubledI[:])
 			} else {
 				// Need to double at least once.
 				copy(I[:], e.doubledI[:])
-				for i = doubleTarget; i > uint(e.doubledICount); i-- {
+				for i = doubleTarget; i > e.doubledICount; i-- {
 					multBlock(2, &I, &I)
 				}
 				copy(e.doubledI[:], I[:])
-				e.doubledICount = int64(doubleTarget)
+				e.doubledICount = doubleTarget
 			}
 		}
 
