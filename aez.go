@@ -138,35 +138,34 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 10)
 	} else { // AES4
-		var I *[blockSize]byte
+		I := &e.doubledI
 		uj := uint(j)
 		multBlock(uj, &e.J, &delta)
-		multBlock(i%8, &e.L, &buf)
+		multBlock(i%8, &e.L, &buf) // XXX: Cache this too.
 		xorBytes(delta[:], buf[:], delta[:])
 
 		// Cache doubled I values.
 		doubleTarget := (i + 7) / 8
-		switch doubleTarget {
-		case 0:
-			I = &e.I
-		case 1:
-			I = &e.doubledI1
-		default:
-			I = &e.doubledI
-			if e.doubledICount == doubleTarget {
-				// Cache hit.
-			} else if e.doubledICount > doubleTarget {
-				// The target went backwards, probably the pass 1 -> pass 2
-				// transition.
-				copy(I[:], e.doubledI1[:])
-				for i = doubleTarget; i > 1; i-- {
-					multBlock(2, I, I)
-				}
-				e.doubledICount = doubleTarget
-			} else {
-				// Need to double at least once.
-				for i = doubleTarget; i > e.doubledICount; i-- {
-					multBlock(2, I, I)
+		if e.doubledICount != doubleTarget {
+			// Cache miss.
+			switch doubleTarget {
+			case 0: // Precomputed base value.
+				I = &e.I
+			case 1: // Precomputed one doubling.
+				I = &e.doubledI1
+			default:
+				if e.doubledICount > doubleTarget {
+					// The target went backwards, probably the pass 1 -> pass 2
+					// transition.
+					copy(I[:], e.doubledI1[:])
+					for i = doubleTarget; i > 1; i-- {
+						multBlock(2, I, I)
+					}
+				} else {
+					// Need to double at least once.
+					for i = doubleTarget; i > e.doubledICount; i-- {
+						multBlock(2, I, I)
+					}
 				}
 				e.doubledICount = doubleTarget
 			}
