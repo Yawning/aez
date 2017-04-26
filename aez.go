@@ -88,6 +88,10 @@ type aesImplCtor func(*[extractedKeySize]byte) aesImpl
 type eState struct {
 	I, J, L [16]byte
 	aes     aesImpl
+
+	doubledI      [16]byte // Running double.
+	doubledI1     [16]byte // Doubled e.I.
+	doubledICount int64
 }
 
 func (e *eState) init(k []byte) {
@@ -99,6 +103,10 @@ func (e *eState) init(k []byte) {
 	copy(e.J[:], extractedKey[16:32])
 	copy(e.L[:], extractedKey[32:48])
 
+	copy(e.doubledI[:], e.I[:])
+	multBlock(2, &e.I, &e.doubledI1)
+	e.doubledICount = -1
+
 	e.aes = newAes(&extractedKey)
 }
 
@@ -106,6 +114,8 @@ func (e *eState) reset() {
 	memwipe(e.I[:])
 	memwipe(e.J[:])
 	memwipe(e.L[:])
+	memwipe(e.doubledI[:])
+	memwipe(e.doubledI1[:])
 	e.aes.Reset()
 }
 
@@ -114,7 +124,7 @@ func (e *eState) reset() {
 // function.
 func (e *eState) E(j int, i uint, src, dst []byte) {
 	var buf, delta [blockSize]byte
-	defer memwipe(delta[:])
+	var I [blockSize]byte
 
 	if len(src) != blockSize {
 		panic("aez: E: len(src)")
@@ -128,28 +138,71 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 10)
 	} else { // AES4
-		var I [blockSize]byte
-		defer memwipe(I[:])
-		copy(I[:], e.I[:])
-
 		uj := uint(j)
 		multBlock(uj, &e.J, &delta)
 		multBlock(i%8, &e.L, &buf)
 		xorBytes(delta[:], buf[:], delta[:])
-		for i = (i + 7) / 8; i > 0; i-- {
-			multBlock(2, &I, &I)
+
+		// Cache doubled I values.
+		//
+		// XXX: This can be improved to remove some copies and the memwipe.
+		doubleTarget := (i + 7) / 8
+		switch doubleTarget {
+		case 0:
+			copy(I[:], e.I[:])
+		case 1:
+			copy(I[:], e.doubledI1[:])
+		default:
+			// Start of doubling, or the target went backwards.
+			if e.doubledICount == -1 || e.doubledICount > int64(doubleTarget) {
+				switch doubleTarget {
+				case 0:
+					copy(I[:], e.I[:])
+				case 1:
+					copy(I[:], e.doubledI1[:])
+				default:
+					copy(I[:], e.doubledI1[:])
+					for i = doubleTarget; i > 1; i-- {
+						multBlock(2, &I, &I)
+					}
+				}
+				copy(e.doubledI[:], I[:])
+				e.doubledICount = int64(doubleTarget)
+			} else if e.doubledICount == int64(doubleTarget) {
+				// Cache hit.
+				copy(I[:], e.doubledI[:])
+			} else {
+				// Need to double at least once.
+				copy(I[:], e.doubledI[:])
+				for i = doubleTarget; i > uint(e.doubledICount); i-- {
+					multBlock(2, &I, &I)
+				}
+				copy(e.doubledI[:], I[:])
+				e.doubledICount = int64(doubleTarget)
+			}
 		}
+
+		// The reference code does this, which, while explcitly clear,
+		// is horrific for performance, since it starts the doubling process
+		// from scratch on each invocation to E.
+		//
+		//   copy(I[:], e.I[:])
+		//   for i = (i + 7) / 8; i > 0; i-- {
+		//     multBlock(2, &I, &I)
+		//   }
+
 		xorBytes(delta[:], I[:], delta[:])
 		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 4)
 	}
 	copy(dst[:], buf[:])
+
+	memwipe(delta[:])
+	memwipe(I[:])
 }
 
 func multBlock(x uint, src, dst *[blockSize]byte) {
 	var t, r [blockSize]byte
-	defer memwipe(t[:])
-	defer memwipe(r[:])
 
 	copy(t[:], src[:])
 	for x != 0 {
@@ -160,6 +213,9 @@ func multBlock(x uint, src, dst *[blockSize]byte) {
 		x >>= 1
 	}
 	copy(dst[:], r[:])
+
+	memwipe(t[:])
+	memwipe(r[:])
 }
 
 func doubleBlock(p *[blockSize]byte) {
