@@ -125,7 +125,6 @@ func (e *eState) reset() {
 // function.
 func (e *eState) E(j int, i uint, src, dst []byte) {
 	var buf, delta [blockSize]byte
-	var I [blockSize]byte
 
 	if len(src) != blockSize {
 		panic("aez: E: len(src)")
@@ -139,40 +138,36 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 		xorBytes(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 10)
 	} else { // AES4
+		var I *[blockSize]byte
 		uj := uint(j)
 		multBlock(uj, &e.J, &delta)
 		multBlock(i%8, &e.L, &buf)
 		xorBytes(delta[:], buf[:], delta[:])
 
 		// Cache doubled I values.
-		//
-		// XXX: This can be improved to remove some copies and the memwipe.
 		doubleTarget := (i + 7) / 8
 		switch doubleTarget {
 		case 0:
-			copy(I[:], e.I[:])
+			I = &e.I
 		case 1:
-			copy(I[:], e.doubledI1[:])
+			I = &e.doubledI1
 		default:
-			if e.doubledICount > doubleTarget {
+			I = &e.doubledI
+			if e.doubledICount == doubleTarget {
+				// Cache hit.
+			} else if e.doubledICount > doubleTarget {
 				// The target went backwards, probably the pass 1 -> pass 2
 				// transition.
 				copy(I[:], e.doubledI1[:])
 				for i = doubleTarget; i > 1; i-- {
-					multBlock(2, &I, &I)
+					multBlock(2, I, I)
 				}
-				copy(e.doubledI[:], I[:])
 				e.doubledICount = doubleTarget
-			} else if e.doubledICount == doubleTarget {
-				// Cache hit.
-				copy(I[:], e.doubledI[:])
 			} else {
 				// Need to double at least once.
-				copy(I[:], e.doubledI[:])
 				for i = doubleTarget; i > e.doubledICount; i-- {
-					multBlock(2, &I, &I)
+					multBlock(2, I, I)
 				}
-				copy(e.doubledI[:], I[:])
 				e.doubledICount = doubleTarget
 			}
 		}
@@ -193,7 +188,6 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 	copy(dst[:], buf[:])
 
 	memwipe(delta[:])
-	memwipe(I[:])
 }
 
 func multBlock(x uint, src, dst *[blockSize]byte) {
