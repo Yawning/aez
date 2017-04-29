@@ -13,19 +13,19 @@ package aez
 func cpuidAMD64(cpuidParams *uint32)
 
 //go:noescape
-func xorBytes16AMD64SSE2(a, b, dst *byte)
+func xorBytes1x16AMD64SSE2(a, b, dst *byte)
 
 //go:noescape
-func aes4AMD64AESNI(state, key *byte)
+func aes4AMD64AESNI(s, k *byte)
 
 //go:noescape
-func aes10AMD64AESNI(state, key *byte)
+func aes10AMD64AESNI(s, k *byte)
 
-func xorBytes16(a, b, dst []byte) {
+func xorBytes1x16(a, b, dst []byte) {
 	// As stupid as this is, it's actually a decent performance boost,
 	// even though the compiler probably should be able to optimize such
 	// things.
-	xorBytes16AMD64SSE2(&a[0], &b[0], &dst[0])
+	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
 }
 
 type roundAesni struct {

@@ -14,8 +14,8 @@ TEXT ·cpuidAMD64(SB),4,$0-8
 	MOVL DX, 12(R15)
 	RET
 
-// func xorBytes16AMD64SSE2(a *uint8, b *uint8, dst *uint8)
-TEXT ·xorBytes16AMD64SSE2(SB),4,$0-24
+// func xorBytes1x16AMD64SSE2(a *uint8, b *uint8, dst *uint8)
+TEXT ·xorBytes1x16AMD64SSE2(SB),4,$0-24
 	MOVQ a+0(FP), AX
 	MOVQ b+8(FP), BX
 	MOVQ dst+16(FP), CX

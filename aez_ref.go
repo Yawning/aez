@@ -9,6 +9,8 @@
 
 package aez
 
-func xorBytes16(a, b, dst []byte) {
-	xorBytes(a, b, dst)
+func xorBytes1x16(a, b, dst []byte) {
+	for i := 0; i < 16; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
 }

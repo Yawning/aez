@@ -36,7 +36,7 @@ a = Argument(ptr(const_uint8_t))
 b = Argument(ptr(const_uint8_t))
 dst = Argument(ptr(uint8_t))
 
-with Function("xorBytes16AMD64SSE2", (a, b, dst)):
+with Function("xorBytes1x16AMD64SSE2", (a, b, dst)):
     reg_a = GeneralPurposeRegister64()
     reg_b = GeneralPurposeRegister64()
     reg_dst = GeneralPurposeRegister64()
