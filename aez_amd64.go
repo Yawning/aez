@@ -56,21 +56,20 @@ func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {
 
 func supportsAESNI() bool {
 	const (
-		aesniBit = 1 << 25
+		aesniBit   = 1 << 25
+		osXsaveBit = 1 << 27
 	)
 
-	// Check to see if CPUID actually supports the leaf that indicates AES-NI.
-	// CPUID.(EAX=0H, ECX=0H) >= 1
-	regs := [4]uint32{0x00}
+	// Check to see if the OS knows how to save/restore XMM state.
+	// CPUID.(EAX=01H, ECX=0H):ECX.OSXSAVE[bit 27]==1
+	regs := [4]uint32{0x01}
 	cpuidAMD64(&regs[0])
-	if regs[0] < 1 {
+	if regs[2]&osXsaveBit == 0 {
 		return false
 	}
 
 	// Check for AES-NI support.
 	// CPUID.(EAX=01H, ECX=0H):ECX.AESNI[bit 25] = 1
-	regs = [4]uint32{0x01}
-	cpuidAMD64(&regs[0])
 	return regs[2]&aesniBit != 0
 }
 
