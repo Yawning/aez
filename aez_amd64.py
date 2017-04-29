@@ -14,6 +14,24 @@
 from peachpy import *
 from peachpy.x86_64 import *
 
+cpuidParams = Argument(ptr(uint32_t))
+
+with Function("cpuidAMD64", (cpuidParams,)):
+    reg_params = registers.r15
+    LOAD.ARGUMENT(reg_params, cpuidParams)
+
+    MOV(registers.eax, [reg_params])
+    MOV(registers.ecx, [reg_params+4])
+
+    CPUID()
+
+    MOV([reg_params], registers.eax)
+    MOV([reg_params+4], registers.ebx)
+    MOV([reg_params+8], registers.ecx)
+    MOV([reg_params+12], registers.edx)
+
+    RETURN()
+
 a = Argument(ptr(const_uint8_t))
 b = Argument(ptr(const_uint8_t))
 dst = Argument(ptr(uint8_t))
@@ -36,5 +54,75 @@ with Function("xorBytes16AMD64SSE2", (a, b, dst)):
     PXOR(xmm_a, xmm_b)
 
     MOVDQU([reg_dst], xmm_a)
+
+    RETURN()
+
+#
+# Sigh.  PeachPy has "interesting" ideas of definitions for certain things,
+# so just use the `zen` uarch, because it supports everything.
+#
+
+s = Argument(ptr(uint8_t))
+k = Argument(ptr(const_uint8_t))
+
+with Function("aes4AMD64AESNI", (s, k), target=uarch.zen):
+    reg_s = GeneralPurposeRegister64()
+    reg_k = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_s, s)
+    LOAD.ARGUMENT(reg_k, k)
+
+    xmm_state = XMMRegister()
+    xmm_i = XMMRegister()
+    xmm_j = XMMRegister()
+    xmm_l = XMMRegister()
+    xmm_zero = XMMRegister()
+
+    PXOR(xmm_zero, xmm_zero)
+    MOVDQU(xmm_state, [reg_s])
+    MOVDQU(xmm_i, [reg_k])
+    MOVDQU(xmm_j, [reg_k+16])
+    MOVDQU(xmm_l, [reg_k+32])
+
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_zero)
+
+    MOVDQU([reg_s], xmm_state)
+
+    RETURN()
+
+with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
+    reg_s = GeneralPurposeRegister64()
+    reg_k = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_s, s)
+    LOAD.ARGUMENT(reg_k, k)
+
+    xmm_state = XMMRegister()
+    xmm_i = XMMRegister()
+    xmm_j = XMMRegister()
+    xmm_l = XMMRegister()
+    xmm_zero = XMMRegister()
+
+    PXOR(xmm_zero, xmm_zero)
+    MOVDQU(xmm_state, [reg_s])
+    MOVDQU(xmm_i, [reg_k])
+    MOVDQU(xmm_j, [reg_k+16])
+    MOVDQU(xmm_l, [reg_k+32])
+
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+
+    MOVDQU([reg_s], xmm_state)
 
     RETURN()
