@@ -139,18 +139,6 @@ func (e *eState) e10(l *[blockSize]byte, in []byte, dst *[blockSize]byte) {
 	e.aes.Rounds(dst, 10)
 }
 
-func xorBytes3x16(a, b, c, dst *[blockSize]byte) {
-	for i := range dst {
-		dst[i] = a[i] ^ b[i] ^ c[i]
-	}
-}
-
-func xorBytes4x16(a, b, c, d []byte, dst *[blockSize]byte) {
-	for i := range dst {
-		dst[i] = a[i] ^ b[i] ^ c[i] ^ d[i]
-	}
-}
-
 func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	var buf, sum, I, J [blockSize]byte
 

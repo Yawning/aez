@@ -34,6 +34,8 @@ with Function("cpuidAMD64", (cpuidParams,)):
 
 a = Argument(ptr(const_uint8_t))
 b = Argument(ptr(const_uint8_t))
+c = Argument(ptr(const_uint8_t))
+d = Argument(ptr(const_uint8_t))
 dst = Argument(ptr(uint8_t))
 
 with Function("xorBytes1x16AMD64SSE2", (a, b, dst)):
@@ -52,6 +54,63 @@ with Function("xorBytes1x16AMD64SSE2", (a, b, dst)):
     MOVDQU(xmm_b, [reg_b])
 
     PXOR(xmm_a, xmm_b)
+
+    MOVDQU([reg_dst], xmm_a)
+
+    RETURN()
+
+with Function("xorBytes3x16AMD64SSE2", (a, b, c, dst)):
+    reg_a = GeneralPurposeRegister64()
+    reg_b = GeneralPurposeRegister64()
+    reg_c = GeneralPurposeRegister64()
+    reg_dst = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_a, a)
+    LOAD.ARGUMENT(reg_b, b)
+    LOAD.ARGUMENT(reg_c, c)
+    LOAD.ARGUMENT(reg_dst, dst)
+
+    xmm_a = XMMRegister()
+    xmm_b = XMMRegister()
+    xmm_c = XMMRegister()
+
+    MOVDQU(xmm_a, [reg_a])
+    MOVDQU(xmm_b, [reg_b])
+    MOVDQU(xmm_c, [reg_c])
+
+    PXOR(xmm_a, xmm_b)
+    PXOR(xmm_a, xmm_c)
+
+    MOVDQU([reg_dst], xmm_a)
+
+    RETURN()
+
+with Function("xorBytes4x16AMD64SSE2", (a, b, c, d, dst)):
+    reg_a = GeneralPurposeRegister64()
+    reg_b = GeneralPurposeRegister64()
+    reg_c = GeneralPurposeRegister64()
+    reg_d = GeneralPurposeRegister64()
+    reg_dst = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_a, a)
+    LOAD.ARGUMENT(reg_b, b)
+    LOAD.ARGUMENT(reg_c, c)
+    LOAD.ARGUMENT(reg_d, d)
+    LOAD.ARGUMENT(reg_dst, dst)
+
+    xmm_a = XMMRegister()
+    xmm_b = XMMRegister()
+    xmm_c = XMMRegister()
+    xmm_d = XMMRegister()
+
+    MOVDQU(xmm_a, [reg_a])
+    MOVDQU(xmm_b, [reg_b])
+    MOVDQU(xmm_c, [reg_c])
+    MOVDQU(xmm_d, [reg_d])
+
+    PXOR(xmm_a, xmm_b)
+    PXOR(xmm_c, xmm_d)
+    PXOR(xmm_a, xmm_c)
 
     MOVDQU([reg_dst], xmm_a)
 

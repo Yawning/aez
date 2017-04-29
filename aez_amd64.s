@@ -25,6 +25,37 @@ TEXT ·xorBytes1x16AMD64SSE2(SB),4,$0-24
 	MOVOU X0, 0(CX)
 	RET
 
+// func xorBytes3x16AMD64SSE2(a *uint8, b *uint8, c *uint8, dst *uint8)
+TEXT ·xorBytes3x16AMD64SSE2(SB),4,$0-32
+	MOVQ a+0(FP), AX
+	MOVQ b+8(FP), BX
+	MOVQ c+16(FP), CX
+	MOVQ dst+24(FP), DX
+	MOVOU 0(AX), X0
+	MOVOU 0(BX), X1
+	MOVOU 0(CX), X2
+	PXOR X1, X0
+	PXOR X2, X0
+	MOVOU X0, 0(DX)
+	RET
+
+// func xorBytes4x16AMD64SSE2(a *uint8, b *uint8, c *uint8, d *uint8, dst *uint8)
+TEXT ·xorBytes4x16AMD64SSE2(SB),4,$0-40
+	MOVQ a+0(FP), AX
+	MOVQ b+8(FP), BX
+	MOVQ c+16(FP), CX
+	MOVQ d+24(FP), DX
+	MOVQ dst+32(FP), DI
+	MOVOU 0(AX), X0
+	MOVOU 0(BX), X1
+	MOVOU 0(CX), X2
+	MOVOU 0(DX), X3
+	PXOR X1, X0
+	PXOR X3, X2
+	PXOR X2, X0
+	MOVOU X0, 0(DI)
+	RET
+
 // func aes4AMD64AESNI(s *uint8, k *uint8)
 TEXT ·aes4AMD64AESNI(SB),4,$0-16
 	MOVQ s+0(FP), AX
