@@ -93,7 +93,8 @@ type eState struct {
 	doubledI1     [16]byte // Doubled e.I.
 	doubledICount uint
 
-	doubledJ [3][16]byte
+	doubledJ    [3][16]byte
+	multipliedL [8][16]byte
 }
 
 func (e *eState) init(k []byte) {
@@ -110,9 +111,18 @@ func (e *eState) init(k []byte) {
 	multBlock(2, &e.doubledI1, &e.doubledI)
 	e.doubledICount = 2
 
-	multBlock(0, &e.J, &e.doubledJ[0])
-	multBlock(1, &e.J, &e.doubledJ[1])
+	// multBlock(0, &e.J, &e.doubledJ[0])
+	copy(e.doubledJ[1][:], e.J[:])
 	multBlock(2, &e.J, &e.doubledJ[2])
+
+	// multBlock(0, &e.L, &e.multipledL[0])
+	copy(e.multipliedL[1][:], e.L[:])
+	multBlock(2, &e.L, &e.multipliedL[2])
+	multBlock(3, &e.L, &e.multipliedL[3])
+	multBlock(4, &e.L, &e.multipliedL[4]) // Could double [2].
+	multBlock(5, &e.L, &e.multipliedL[5])
+	multBlock(6, &e.L, &e.multipliedL[6])
+	multBlock(7, &e.L, &e.multipliedL[7])
 
 	e.aes = newAes(&extractedKey)
 }
@@ -125,6 +135,9 @@ func (e *eState) reset() {
 	memwipe(e.doubledI1[:])
 	for i := range e.doubledJ {
 		memwipe(e.doubledJ[i][:])
+	}
+	for i := range e.multipliedL {
+		memwipe(e.multipliedL[i][:])
 	}
 	e.aes.Reset()
 }
@@ -143,18 +156,24 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 	}
 
 	if j == -1 { // AES10()
+		// Could be copy(delta[:], e.multipliedL[i][:]), but the E
+		// KATs would need to be pruned.
 		multBlock(i, &e.L, &delta)
 		xorBytes16(delta[:], src, buf[:])
 		e.aes.Rounds(&buf, 10)
 	} else { // AES4
 		I := &e.doubledI
+
 		uj := uint(j)
 		if uj < 3 { // We have precomputed common values.
 			copy(delta[:], e.doubledJ[uj][:])
 		} else {
 			multBlock(uj, &e.J, &delta)
 		}
-		multBlock(i%8, &e.L, &buf) // XXX: Cache this too.
+
+		// multBlock(i%8, &e.L, &buf) // Pull from cache.
+		copy(buf[:], e.multipliedL[i%8][:])
+
 		xorBytes16(delta[:], buf[:], delta[:])
 
 		// Cache doubled I values.
@@ -172,12 +191,12 @@ func (e *eState) E(j int, i uint, src, dst []byte) {
 					// transition.
 					copy(I[:], e.doubledI1[:])
 					for i = doubleTarget; i > 1; i-- {
-						multBlock(2, I, I)
+						doubleBlock(I)
 					}
 				} else {
 					// Need to double at least once.
 					for i = doubleTarget; i > e.doubledICount; i-- {
-						multBlock(2, I, I)
+						doubleBlock(I)
 					}
 				}
 				e.doubledICount = doubleTarget
