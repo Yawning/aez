@@ -167,9 +167,7 @@ with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
     xmm_i = XMMRegister()
     xmm_j = XMMRegister()
     xmm_l = XMMRegister()
-    xmm_zero = XMMRegister()
 
-    PXOR(xmm_zero, xmm_zero)
     MOVDQU(xmm_state, [reg_s])
     MOVDQA(xmm_i, [reg_k])
     MOVDQA(xmm_j, [reg_k+16])
