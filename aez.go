@@ -9,10 +9,11 @@
 // available at: http://www.cs.ucdavis.edu/~rogaway/aez
 //
 // It started off as a straight forward port of the `ref` variant, but has
-// pulled in ideas from `aesni`, though it does not exploit paralleism at
-// all, so the performance is still fairly horrific, even with AES-NI.
+// pulled in ideas from `aesni`.
 
 // Package aez implements the AEZ AEAD primitive.
+//
+// This implementation is NOT CONSTANT TIME ON ALL PLATFORMS.
 //
 // See: http://web.cs.ucdavis.edu/~rogaway/aez/
 package aez
@@ -25,6 +26,9 @@ import (
 )
 
 const (
+	// Version is the version of the AEZ specification implemented.
+	Version = "v5"
+
 	extractedKeySize = 3 * 16
 	blockSize        = 16
 )
