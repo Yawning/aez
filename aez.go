@@ -429,8 +429,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 			buf[0] |= 0x80
 			xorBytes1x16(delta[:], buf[:], buf[:blockSize])
 			e.e4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
-			copy(buf[:blockSize], tmp[:])                        // XXX
-			L[0] ^= (buf[0] & 0x80)
+			L[0] ^= (tmp[0] & 0x80)
 		}
 		j, step = rounds-1, -1
 	} else {
@@ -443,8 +442,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		xorBytes1x16(buf[:], delta[:], buf[:blockSize])
 		buf[15] ^= byte(j)
 		e.e4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
-		copy(buf[:blockSize], tmp[:])                        // XXX
-		xorBytes1x16(L[:], buf[:], L[:blockSize])
+		xorBytes1x16(L[:], tmp[:], L[:blockSize])
 
 		memwipe(buf[:blockSize])
 		copy(buf[:], L[:(inBytes+1)/2])
@@ -452,8 +450,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		xorBytes1x16(buf[:], delta[:], buf[:blockSize])
 		buf[15] ^= byte(int(j) + step)
 		e.e4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
-		copy(buf[:blockSize], tmp[:])                        // XXX
-		xorBytes1x16(R[:], buf[:], R[:blockSize])
+		xorBytes1x16(R[:], tmp[:], R[:blockSize])
 	}
 	copy(buf[:], R[:inBytes/2])
 	copy(buf[inBytes/2:], L[:(inBytes+1)/2])
@@ -469,9 +466,10 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		buf[0] |= 0x80
 		xorBytes1x16(delta[:], buf[:], buf[:blockSize])
 		e.e4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
-		copy(buf[:blockSize], tmp[:])                        // XXX
-		out[0] ^= buf[0] & 0x80
+		out[0] ^= tmp[0] & 0x80
 	}
+
+	memwipe(tmp[:])
 }
 
 func (e *eState) encipher(delta *[blockSize]byte, in, out []byte) {
