@@ -72,10 +72,9 @@ func (a *AeadAEZ) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 		ad = append(ad, additionalData)
 	}
 	c := Encrypt(a.key[:], nonce, ad, aeadOverhead, plaintext)
+	dst = append(dst, c...)
 
-	// TODO: Actually use dst.
-
-	return c
+	return dst
 }
 
 // Open decrypts and authenticates ciphertext, authenticates the
@@ -96,10 +95,9 @@ func (a *AeadAEZ) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, e
 	if !ok {
 		return nil, errOpen
 	}
+	dst = append(dst, d...)
 
-	// TODO: Actually use dst.
-
-	return d, nil
+	return dst, nil
 }
 
 // New returns AEZ wrapped in a new cipher.AEAD instance, with the recommended
