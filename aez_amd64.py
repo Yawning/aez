@@ -150,6 +150,10 @@ with Function("aes4AMD64AESNI", (s, k), target=uarch.zen):
 
     MOVDQU([reg_s], xmm_state)
 
+    PXOR(xmm_i, xmm_i)
+    PXOR(xmm_j, xmm_j)
+    PXOR(xmm_l, xmm_l)
+
     RETURN()
 
 with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
@@ -183,5 +187,9 @@ with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
     AESENC(xmm_state, xmm_i)
 
     MOVDQU([reg_s], xmm_state)
+
+    PXOR(xmm_i, xmm_i)
+    PXOR(xmm_j, xmm_j)
+    PXOR(xmm_l, xmm_l)
 
     RETURN()
