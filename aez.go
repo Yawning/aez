@@ -134,8 +134,8 @@ func doubleBlock(p *[blockSize]byte) {
 		p[i] = (p[i] << 1) | (p[i+1] >> 7)
 	}
 	// p[15] = (p[15] << 1) ^ ((tmp >> 7)?135:0);
-	cf := subtle.ConstantTimeByteEq(tmp>>7, 1)
-	p[15] = (p[15] << 1) ^ byte(subtle.ConstantTimeSelect(cf, 135, 0))
+	s := subtle.ConstantTimeByteEq(tmp>>7, 1)
+	p[15] = (p[15] << 1) ^ byte(subtle.ConstantTimeSelect(s, 135, 0))
 }
 
 func (e *eState) e4(j, i, l *[blockSize]byte, in []byte, dst *[blockSize]byte) {
@@ -157,7 +157,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 
 	// Initialize sum with hash of tau
 	binary.BigEndian.PutUint32(buf[12:], uint32(tau))
-	xorBytes1x16(e.J[0][:], e.J[1][:], J[:]) //J ^ J2
+	xorBytes1x16(e.J[0][:], e.J[1][:], J[:]) // J ^ J2
 	e.e4(&J, &e.I[1], &e.L[1], buf[:], &sum) // E(3,1)
 
 	// Hash nonce, accumulate into sum
@@ -367,7 +367,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	xorBytes1x16(X[:], in, out[:blockSize])
 	xorBytes1x16(delta[:], out, out[:blockSize])
 	xorBytes1x16(tmp[:], out, out[:blockSize])
-	e.e10(&e.L[(1+d)%8], out[:blockSize], &tmp) // E(-1, 1+d)
+	e.e10(&e.L[(1+d)%8], out[:blockSize], &tmp) // E(-1,1+d)
 	xorBytes1x16(in[blockSize:], tmp[:], out[blockSize:blockSize*2])
 	xorBytes1x16(out, out[blockSize:], S[:])
 	// XXX/performance: Early abort if tag is corrupted.
@@ -378,7 +378,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	out = outOrig[off:]
 
 	// Finish encryption of last two blocks
-	e.e10(&e.L[(2-d)%8], out[blockSize:], &tmp) // E(-1, 2-d)
+	e.e10(&e.L[(2-d)%8], out[blockSize:], &tmp) // E(-1,2-d)
 	xorBytes1x16(out, tmp[:], out[:blockSize])
 	e.e4(&zero, &e.I[1], &e.L[(2-d)%8], out[:blockSize], &tmp) // E(0,2-d)
 	xorBytes1x16(tmp[:], out[blockSize:], out[blockSize:2*blockSize])
