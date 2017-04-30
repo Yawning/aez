@@ -263,7 +263,7 @@ func (e *eState) aezCorePass1(delta *[blockSize]byte, in, out []byte, d uint, X,
 		e.e4(&zero, &e.I[1], &e.L[4], in[:blockSize], &tmp) // E(0,4)
 		xorBytes1x16(X[:], tmp[:], X[:])
 		inBytes -= blockSize
-		in, out = in[blockSize:], out[blockSize:]
+		in = in[blockSize:]
 		memwipe(tmp[:])
 		copy(tmp[:], in[:inBytes])
 		tmp[inBytes] = 0x80

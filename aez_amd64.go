@@ -28,9 +28,6 @@ func aes4AMD64AESNI(s, k *byte)
 func aes10AMD64AESNI(s, k *byte)
 
 func xorBytes1x16(a, b, dst []byte) {
-	// As stupid as this is, it's actually a decent performance boost,
-	// even though the compiler probably should be able to optimize such
-	// things.
 	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
 }
 
@@ -42,15 +39,15 @@ func xorBytes4x16(a, b, c, d []byte, dst *[blockSize]byte) {
 	xorBytes4x16AMD64SSE2(&a[0], &b[0], &c[0], &d[0], &dst[0])
 }
 
-type roundAesni struct {
+type roundAESNI struct {
 	keys [extractedKeySize]byte
 }
 
-func (rk *roundAesni) Reset() {
+func (rk *roundAESNI) Reset() {
 	memwipe(rk.keys[:])
 }
 
-func (rk *roundAesni) Rounds(block *[blockSize]byte, rounds int) {
+func (rk *roundAESNI) Rounds(block *[blockSize]byte, rounds int) {
 	switch rounds {
 	case 4:
 		aes4AMD64AESNI(&block[0], &rk.keys[0])
@@ -62,7 +59,7 @@ func (rk *roundAesni) Rounds(block *[blockSize]byte, rounds int) {
 }
 
 func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {
-	rk := new(roundAesni)
+	rk := new(roundAESNI)
 	copy(rk.keys[:], extractedKey[:])
 
 	return rk
