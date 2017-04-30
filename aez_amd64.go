@@ -27,6 +27,12 @@ func aes4AMD64AESNI(s, k *byte)
 //go:noescape
 func aes10AMD64AESNI(s, k *byte)
 
+//go:noescape
+func aezE4AMD64AESNI(j, i, l, k, s, dst *byte)
+
+//go:noescape
+func aezE10AMD64AESNI(l, k, s, dst *byte)
+
 func xorBytes1x16(a, b, dst []byte) {
 	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
 }
@@ -43,26 +49,34 @@ type roundAESNI struct {
 	keys [extractedKeySize]byte
 }
 
-func (rk *roundAESNI) Reset() {
-	memwipe(rk.keys[:])
+func (r *roundAESNI) Reset() {
+	memwipe(r.keys[:])
 }
 
-func (rk *roundAESNI) Rounds(block *[blockSize]byte, rounds int) {
+func (r *roundAESNI) Rounds(block *[blockSize]byte, rounds int) {
 	switch rounds {
 	case 4:
-		aes4AMD64AESNI(&block[0], &rk.keys[0])
+		aes4AMD64AESNI(&block[0], &r.keys[0])
 	case 10:
-		aes10AMD64AESNI(&block[0], &rk.keys[0])
+		aes10AMD64AESNI(&block[0], &r.keys[0])
 	default:
 		panic("aez: roundAesni.Rounds(): round count")
 	}
 }
 
-func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {
-	rk := new(roundAESNI)
-	copy(rk.keys[:], extractedKey[:])
+func (r *roundAESNI) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	aezE4AMD64AESNI(&j[0], &i[0], &l[0], &r.keys[0], &src[0], &dst[0])
+}
 
-	return rk
+func (r *roundAESNI) E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	aezE10AMD64AESNI(&l[0], &r.keys[0], &src[0], &dst[0])
+}
+
+func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {
+	r := new(roundAESNI)
+	copy(r.keys[:], extractedKey[:])
+
+	return r
 }
 
 func supportsAESNI() bool {

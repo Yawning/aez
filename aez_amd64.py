@@ -191,3 +191,95 @@ with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
     PXOR(xmm_l, xmm_l)
 
     RETURN()
+
+j = Argument(ptr(const_uint8_t))
+i = Argument(ptr(const_uint8_t))
+l = Argument(ptr(const_uint8_t))
+src = Argument(ptr(const_uint8_t))
+
+with Function("aezE4AMD64AESNI", (j, i, l, k, s, dst), target=uarch.zen):
+    reg_j = GeneralPurposeRegister64()
+    reg_i = GeneralPurposeRegister64()
+    reg_l = GeneralPurposeRegister64()
+    reg_k = GeneralPurposeRegister64()
+    reg_s = GeneralPurposeRegister64()
+    reg_dst = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_j, j)
+    LOAD.ARGUMENT(reg_i, i)
+    LOAD.ARGUMENT(reg_l, l)
+    LOAD.ARGUMENT(reg_k, k)
+    LOAD.ARGUMENT(reg_s, s)
+    LOAD.ARGUMENT(reg_dst, dst)
+
+    xmm_state = XMMRegister()
+    xmm_j = XMMRegister()
+    xmm_i = XMMRegister()
+    xmm_l = XMMRegister()
+    xmm_zero = XMMRegister()
+
+    MOVDQU(xmm_state, [reg_s])
+    MOVDQA(xmm_j, [reg_j])
+    MOVDQA(xmm_i, [reg_i])
+    MOVDQA(xmm_l, [reg_l])
+
+    PXOR(xmm_state, xmm_j)
+    PXOR(xmm_i, xmm_l)
+    PXOR(xmm_state, xmm_i)
+    PXOR(xmm_zero, xmm_zero)
+
+    MOVDQA(xmm_i, [reg_k])
+    MOVDQA(xmm_j, [reg_k+16])
+    MOVDQA(xmm_l, [reg_k+32])
+
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_zero)
+
+    MOVDQU([reg_dst], xmm_state)
+
+    PXOR(xmm_i, xmm_i)
+    PXOR(xmm_j, xmm_j)
+    PXOR(xmm_l, xmm_l)
+
+    RETURN()
+
+with Function("aezE10AMD64AESNI", (l, k, s, dst), target=uarch.zen):
+    reg_l = GeneralPurposeRegister64()
+    reg_k = GeneralPurposeRegister64()
+    reg_s = GeneralPurposeRegister64()
+    reg_dst = GeneralPurposeRegister64()
+
+    LOAD.ARGUMENT(reg_l, l)
+    LOAD.ARGUMENT(reg_k, k)
+    LOAD.ARGUMENT(reg_s, s)
+    LOAD.ARGUMENT(reg_dst, dst)
+
+    MOVDQU(xmm_state, [reg_s])
+    MOVDQU(xmm_l, [reg_l])
+
+    PXOR(xmm_state, xmm_l)
+
+    MOVDQA(xmm_i, [reg_k])
+    MOVDQA(xmm_j, [reg_k+16])
+    MOVDQA(xmm_l, [reg_k+32])
+
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+    AESENC(xmm_state, xmm_j)
+    AESENC(xmm_state, xmm_l)
+    AESENC(xmm_state, xmm_i)
+
+    MOVDQU([reg_dst], xmm_state)
+
+    PXOR(xmm_i, xmm_i)
+    PXOR(xmm_j, xmm_j)
+    PXOR(xmm_l, xmm_l)
+
+    RETURN()

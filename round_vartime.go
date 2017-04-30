@@ -285,7 +285,7 @@ type roundVartime struct {
 }
 
 func newRoundVartime(extractedKey *[extractedKeySize]byte) aesImpl {
-	rk := new(roundVartime)
+	r := new(roundVartime)
 
 	// Convert the keys to uint32s, after "correcting" them to a format
 	// suitable for the AES round function.
@@ -300,32 +300,32 @@ func newRoundVartime(extractedKey *[extractedKeySize]byte) aesImpl {
 	lK := keys[8:12]
 
 	// AES10
-	copy(rk.aes10Key[0:], keys[:])  // I J L
-	copy(rk.aes10Key[12:], keys[:]) // I J L
-	copy(rk.aes10Key[24:], keys[:]) // I J L
-	copy(rk.aes10Key[36:], iK)      // I
+	copy(r.aes10Key[0:], keys[:])  // I J L
+	copy(r.aes10Key[12:], keys[:]) // I J L
+	copy(r.aes10Key[24:], keys[:]) // I J L
+	copy(r.aes10Key[36:], iK)      // I
 
 	// AES4
-	copy(rk.aes4Key[0:], jK) // J
-	copy(rk.aes4Key[4:], iK) // I
-	copy(rk.aes4Key[8:], lK) // L
+	copy(r.aes4Key[0:], jK) // J
+	copy(r.aes4Key[4:], iK) // I
+	copy(r.aes4Key[8:], lK) // L
 
-	return rk
+	return r
 }
 
-func (rk *roundVartime) Reset() {
-	memwipeU32(rk.aes10Key[:])
-	memwipeU32(rk.aes4Key[:])
+func (r *roundVartime) Reset() {
+	memwipeU32(r.aes10Key[:])
+	memwipeU32(r.aes4Key[:])
 }
 
-func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
+func (r *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 	var t0, t1, t2, t3 uint32
 	var keys []uint32
 	switch rounds {
 	case 4:
-		keys = rk.aes4Key[:]
+		keys = r.aes4Key[:]
 	case 10:
-		keys = rk.aes10Key[:]
+		keys = r.aes10Key[:]
 	default:
 		panic("aez: roundVartime.Rounds(): round count")
 	}
@@ -373,6 +373,16 @@ func (rk *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 	binary.BigEndian.PutUint32(block[4:], s1)
 	binary.BigEndian.PutUint32(block[8:], s2)
 	binary.BigEndian.PutUint32(block[12:], s3)
+}
+
+func (r *roundVartime) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	xorBytes4x16(j[:], i[:], l[:], src, dst)
+	r.Rounds(dst, 4)
+}
+
+func (r *roundVartime) E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	xorBytes1x16(src, l[:], dst[:])
+	r.Rounds(dst, 10)
 }
 
 func memwipeU32(b []uint32) {

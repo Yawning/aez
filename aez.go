@@ -58,6 +58,8 @@ func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 type aesImpl interface {
 	Reset()
 	Rounds(*[blockSize]byte, int)
+	E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte)
+	E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte)
 }
 
 type aesImplCtor func(*[extractedKeySize]byte) aesImpl
@@ -138,16 +140,6 @@ func doubleBlock(p *[blockSize]byte) {
 	p[15] = (p[15] << 1) ^ byte(subtle.ConstantTimeSelect(s, 135, 0))
 }
 
-func (e *eState) e4(j, i, l *[blockSize]byte, in []byte, dst *[blockSize]byte) {
-	xorBytes4x16(j[:], i[:], l[:], in, dst)
-	e.aes.Rounds(dst, 4)
-}
-
-func (e *eState) e10(l *[blockSize]byte, in []byte, dst *[blockSize]byte) {
-	xorBytes1x16(in, l[:], dst[:])
-	e.aes.Rounds(dst, 10)
-}
-
 func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	var buf, sum, I, J [blockSize]byte
 
@@ -157,8 +149,8 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 
 	// Initialize sum with hash of tau
 	binary.BigEndian.PutUint32(buf[12:], uint32(tau))
-	xorBytes1x16(e.J[0][:], e.J[1][:], J[:]) // J ^ J2
-	e.e4(&J, &e.I[1], &e.L[1], buf[:], &sum) // E(3,1)
+	xorBytes1x16(e.J[0][:], e.J[1][:], J[:])     // J ^ J2
+	e.aes.E4(&J, &e.I[1], &e.L[1], buf[:], &sum) // E(3,1)
 
 	// Hash nonce, accumulate into sum
 	empty := len(nonce) == 0
@@ -166,7 +158,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 	nBytes := uint(len(nonce))
 	copy(I[:], e.I[1][:])
 	for i := uint(1); nBytes >= blockSize; i, nBytes = i+1, nBytes-blockSize {
-		e.e4(&e.J[2], &I, &e.L[i%8], n[:blockSize], &buf) // E(4,i)
+		e.aes.E4(&e.J[2], &I, &e.L[i%8], n[:blockSize], &buf) // E(4,i)
 		xorBytes1x16(sum[:], buf[:], sum[:])
 		n = n[blockSize:]
 		if i%8 == 0 {
@@ -177,7 +169,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 		memwipe(buf[:])
 		copy(buf[:], n)
 		buf[nBytes] = 0x80
-		e.e4(&e.J[2], &e.I[0], &e.L[0], buf[:], &buf) // E(4,0)
+		e.aes.E4(&e.J[2], &e.I[0], &e.L[0], buf[:], &buf) // E(4,0)
 		xorBytes1x16(sum[:], buf[:], sum[:])
 	}
 
@@ -188,7 +180,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 		copy(I[:], e.I[1][:])
 		multBlock(uint(5+k), &e.J[0], &J) // XXX/performance.
 		for i := uint(1); bytes >= blockSize; i, bytes = i+1, bytes-blockSize {
-			e.e4(&J, &I, &e.L[i%8], p[:blockSize], &buf) // E(5+k,i)
+			e.aes.E4(&J, &I, &e.L[i%8], p[:blockSize], &buf) // E(5+k,i)
 			xorBytes1x16(sum[:], buf[:], sum[:])
 			p = p[blockSize:]
 			if i%8 == 0 {
@@ -199,7 +191,7 @@ func (e *eState) aezHash(nonce []byte, ad [][]byte, tau int, result []byte) {
 			memwipe(buf[:])
 			copy(buf[:], p)
 			buf[bytes] = 0x80
-			e.e4(&J, &e.I[0], &e.L[0], buf[:], &buf) // E(5+k,0)
+			e.aes.E4(&J, &e.I[0], &e.L[0], buf[:], &buf) // E(5+k,0)
 			xorBytes1x16(sum[:], buf[:], sum[:])
 		}
 	}
@@ -254,9 +246,9 @@ func (e *eState) aezCorePass1(delta *[blockSize]byte, in, out []byte, d uint, X,
 	// XXX/performance: Process multiple blocks at once.
 	copy(I[:], e.I[1][:])
 	for i := uint(1); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
-		e.e4(&e.J[0], &I, &e.L[i%8], in[blockSize:blockSize*2], &tmp) // E(1,i)
+		e.aes.E4(&e.J[0], &I, &e.L[i%8], in[blockSize:blockSize*2], &tmp) // E(1,i)
 		xorBytes1x16(in[:], tmp[:], out[:blockSize])
-		e.e4(&zero, &e.I[0], &e.L[0], out[:blockSize], &tmp) // E(0,0)
+		e.aes.E4(&zero, &e.I[0], &e.L[0], out[:blockSize], &tmp) // E(0,0)
 		xorBytes1x16(in[blockSize:], tmp[:], out[blockSize:blockSize*2])
 		xorBytes1x16(out[blockSize:], X[:], X[:])
 
@@ -269,20 +261,20 @@ func (e *eState) aezCorePass1(delta *[blockSize]byte, in, out []byte, d uint, X,
 	// Finish X calculation
 	inBytes -= 32 // inbytes now has fragment length 0..31
 	if inBytes >= blockSize {
-		e.e4(&zero, &e.I[1], &e.L[4], in[:blockSize], &tmp) // E(0,4)
+		e.aes.E4(&zero, &e.I[1], &e.L[4], in[:blockSize], &tmp) // E(0,4)
 		xorBytes1x16(X[:], tmp[:], X[:])
 		inBytes -= blockSize
 		in = in[blockSize:]
 		memwipe(tmp[:])
 		copy(tmp[:], in[:inBytes])
 		tmp[inBytes] = 0x80
-		e.e4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
+		e.aes.E4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
 		xorBytes1x16(X[:], tmp[:], X[:])
 	} else if inBytes > 0 {
 		memwipe(tmp[:])
 		copy(tmp[:], in[:inBytes])
 		tmp[inBytes] = 0x80
-		e.e4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
+		e.aes.E4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
 		xorBytes1x16(X[:], tmp[:], X[:])
 	}
 	in = in[inBytes:]
@@ -302,13 +294,13 @@ func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte) int {
 	// XXX/performance: Process multiple blocks at once.
 	copy(I[:], e.I[1][:])
 	for i := uint(1); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
-		e.e4(&e.J[1], &I, &e.L[i%8], S[:], &tmp) // E(2,i)
+		e.aes.E4(&e.J[1], &I, &e.L[i%8], S[:], &tmp) // E(2,i)
 		xorBytes1x16(out, tmp[:], out[:blockSize])
 		xorBytes1x16(out[blockSize:], tmp[:], out[blockSize:blockSize*2])
 		xorBytes1x16(out, Y[:], Y[:])
-		e.e4(&zero, &e.I[0], &e.L[0], out[blockSize:blockSize*2], &tmp) // E(0,0)
+		e.aes.E4(&zero, &e.I[0], &e.L[0], out[blockSize:blockSize*2], &tmp) // E(0,0)
 		xorBytes1x16(out, tmp[:], out[:blockSize])
-		e.e4(&e.J[0], &I, &e.L[i%8], out[:blockSize], &tmp) // E(1,i)
+		e.aes.E4(&e.J[0], &I, &e.L[i%8], out[:blockSize], &tmp) // E(1,i)
 		xorBytes1x16(out[blockSize:], tmp[:], out[blockSize:blockSize*2])
 		copy(tmp[:], out[:blockSize])
 		copy(out[:blockSize], out[blockSize:])
@@ -323,26 +315,26 @@ func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte) int {
 	// Finish Y calculation and finish encryption of fragment bytes
 	inBytes -= 32 // inbytes now has fragment length 0..31
 	if inBytes >= blockSize {
-		e.e10(&e.L[4], S[:], &tmp) // E(-1,4)
+		e.aes.E10(&e.L[4], S[:], &tmp) // E(-1,4)
 		xorBytes1x16(in, tmp[:], out[:blockSize])
-		e.e4(&zero, &e.I[1], &e.L[4], out[:blockSize], &tmp) // E(0,4)
+		e.aes.E4(&zero, &e.I[1], &e.L[4], out[:blockSize], &tmp) // E(0,4)
 		xorBytes1x16(Y[:], tmp[:], Y[:])
 		inBytes -= blockSize
 		in, out = in[blockSize:], out[blockSize:]
-		e.e10(&e.L[5], S[:], &tmp)          // E(-1,5)
+		e.aes.E10(&e.L[5], S[:], &tmp)      // E(-1,5)
 		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
 		copy(out, tmp[:inBytes])
 		memwipe(tmp[inBytes:])
 		tmp[inBytes] = 0x80
-		e.e4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
+		e.aes.E4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
 		xorBytes1x16(Y[:], tmp[:], Y[:])
 	} else if inBytes > 0 {
-		e.e10(&e.L[4], S[:], &tmp)          // E(-1, 4)
+		e.aes.E10(&e.L[4], S[:], &tmp)      // E(-1,4)
 		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
 		copy(out, tmp[:inBytes])
 		memwipe(tmp[inBytes:])
 		tmp[inBytes] = 0x80
-		e.e4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
+		e.aes.E4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
 		xorBytes1x16(Y[:], tmp[:], Y[:])
 	}
 	in = in[inBytes:]
@@ -363,11 +355,11 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	out = out[off:]
 
 	// Calculate S
-	e.e4(&zero, &e.I[1], &e.L[(1+d)%8], in[blockSize:2*blockSize], &tmp) // E(0,1+d)
+	e.aes.E4(&zero, &e.I[1], &e.L[(1+d)%8], in[blockSize:2*blockSize], &tmp) // E(0,1+d)
 	xorBytes1x16(X[:], in, out[:blockSize])
 	xorBytes1x16(delta[:], out, out[:blockSize])
 	xorBytes1x16(tmp[:], out, out[:blockSize])
-	e.e10(&e.L[(1+d)%8], out[:blockSize], &tmp) // E(-1,1+d)
+	e.aes.E10(&e.L[(1+d)%8], out[:blockSize], &tmp) // E(-1,1+d)
 	xorBytes1x16(in[blockSize:], tmp[:], out[blockSize:blockSize*2])
 	xorBytes1x16(out, out[blockSize:], S[:])
 	// XXX/performance: Early abort if tag is corrupted.
@@ -378,9 +370,9 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	out = outOrig[off:]
 
 	// Finish encryption of last two blocks
-	e.e10(&e.L[(2-d)%8], out[blockSize:], &tmp) // E(-1,2-d)
+	e.aes.E10(&e.L[(2-d)%8], out[blockSize:], &tmp) // E(-1,2-d)
 	xorBytes1x16(out, tmp[:], out[:blockSize])
-	e.e4(&zero, &e.I[1], &e.L[(2-d)%8], out[:blockSize], &tmp) // E(0,2-d)
+	e.aes.E4(&zero, &e.I[1], &e.L[(2-d)%8], out[:blockSize], &tmp) // E(0,2-d)
 	xorBytes1x16(tmp[:], out[blockSize:], out[blockSize:2*blockSize])
 	xorBytes1x16(delta[:], out[blockSize:], out[blockSize:2*blockSize])
 	xorBytes1x16(Y[:], out[blockSize:], out[blockSize:2*blockSize])
@@ -433,7 +425,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 			copy(buf[:], in)
 			buf[0] |= 0x80
 			xorBytes1x16(delta[:], buf[:], buf[:blockSize])
-			e.e4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
+			e.aes.E4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
 			L[0] ^= (tmp[0] & 0x80)
 		}
 		j, step = rounds-1, -1
@@ -446,7 +438,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		buf[inBytes/2] = (buf[inBytes/2] & mask) | pad
 		xorBytes1x16(buf[:], delta[:], buf[:blockSize])
 		buf[15] ^= byte(j)
-		e.e4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
+		e.aes.E4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
 		xorBytes1x16(L[:], tmp[:], L[:blockSize])
 
 		memwipe(buf[:blockSize])
@@ -454,7 +446,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		buf[inBytes/2] = (buf[inBytes/2] & mask) | pad
 		xorBytes1x16(buf[:], delta[:], buf[:blockSize])
 		buf[15] ^= byte(int(j) + step)
-		e.e4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
+		e.aes.E4(&zero, &e.I[1], &e.L[i], buf[:blockSize], &tmp) // E(0,i)
 		xorBytes1x16(R[:], tmp[:], R[:blockSize])
 	}
 	copy(buf[:], R[:inBytes/2])
@@ -470,7 +462,7 @@ func (e *eState) aezTiny(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		memwipe(buf[inBytes:blockSize])
 		buf[0] |= 0x80
 		xorBytes1x16(delta[:], buf[:], buf[:blockSize])
-		e.e4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
+		e.aes.E4(&zero, &e.I[1], &e.L[3], buf[:blockSize], &tmp) // E(0,3)
 		out[0] ^= tmp[0] & 0x80
 	}
 
