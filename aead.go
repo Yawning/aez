@@ -1,15 +1,9 @@
-// aead.go - An AEZ implementation.
+// aead.go - crypto/cipher.AEAD wrapper
 //
 // To the extent possible under law, Yawning Angel has waived all copyright
 // and related or neighboring rights to aez, using the Creative
 // Commons "CC0" public domain dedication. See LICENSE or
 // <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
-//
-// This implementation is primarily derived from the AEZ v5 reference code
-// available at: http://www.cs.ucdavis.edu/~rogaway/aez
-//
-// It started off as a straight forward port of the `ref` variant, but has
-// pulled in ideas from `aesni`.
 
 package aez
 
