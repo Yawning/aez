@@ -237,7 +237,7 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	memwipe(buf[:])
 }
 
-func (e *eState) aezCorePass1(in, out []byte, d uint, X *[blockSize]byte) int {
+func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte) int {
 	var tmp, I [blockSize]byte
 	inBytes := len(in)
 	inBytesOrig := inBytes
@@ -350,7 +350,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	inOrig, outOrig := in, out
 
 	// Compute X and store intermediate results
-	off := e.aezCorePass1(in, out, d, &X)
+	off := e.aezCorePass1(in, out, &X)
 	in = in[off:]
 	out = out[off:]
 
