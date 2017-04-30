@@ -139,9 +139,9 @@ with Function("aes4AMD64AESNI", (s, k), target=uarch.zen):
 
     PXOR(xmm_zero, xmm_zero)
     MOVDQU(xmm_state, [reg_s])
-    MOVDQU(xmm_i, [reg_k])
-    MOVDQU(xmm_j, [reg_k+16])
-    MOVDQU(xmm_l, [reg_k+32])
+    MOVDQA(xmm_i, [reg_k])
+    MOVDQA(xmm_j, [reg_k+16])
+    MOVDQA(xmm_l, [reg_k+32])
 
     AESENC(xmm_state, xmm_j)
     AESENC(xmm_state, xmm_i)
@@ -171,9 +171,9 @@ with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
 
     PXOR(xmm_zero, xmm_zero)
     MOVDQU(xmm_state, [reg_s])
-    MOVDQU(xmm_i, [reg_k])
-    MOVDQU(xmm_j, [reg_k+16])
-    MOVDQU(xmm_l, [reg_k+32])
+    MOVDQA(xmm_i, [reg_k])
+    MOVDQA(xmm_j, [reg_k+16])
+    MOVDQA(xmm_l, [reg_k+32])
 
     AESENC(xmm_state, xmm_i)
     AESENC(xmm_state, xmm_j)
