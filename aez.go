@@ -65,7 +65,7 @@ type aesImplCtor func(*[extractedKeySize]byte) aesImpl
 type eState struct {
 	I   [2][16]byte // 1I, 2I
 	J   [3][16]byte // 1J, 2J, 4J
-	L   [8][16]byte // 0L, 1L ... 7L XXX: Ref does 1, 2, 4
+	L   [8][16]byte // 0L, 1L ... 7L
 	aes aesImpl
 }
 
@@ -74,21 +74,26 @@ func (e *eState) init(k []byte) {
 	defer memwipe(extractedKey[:])
 
 	extract(k, &extractedKey)
-	copy(e.I[0][:], extractedKey[0:16])
-	copy(e.J[0][:], extractedKey[16:32])
-	copy(e.L[1][:], extractedKey[32:48])
 
-	multBlock(2, &e.I[0], &e.I[1])
-	multBlock(2, &e.J[0], &e.J[1])
-	multBlock(2, &e.J[1], &e.J[2])
+	copy(e.I[0][:], extractedKey[0:16]) // 1I
+	multBlock(2, &e.I[0], &e.I[1])      // 2I
 
-	// multBlock(0, &e.L, &e.L[0])
-	multBlock(2, &e.L[1], &e.L[2])
-	multBlock(3, &e.L[1], &e.L[3])
-	multBlock(4, &e.L[1], &e.L[4])
-	multBlock(5, &e.L[1], &e.L[5])
-	multBlock(6, &e.L[1], &e.L[6])
-	multBlock(7, &e.L[1], &e.L[7])
+	copy(e.J[0][:], extractedKey[16:32]) // 1J
+	multBlock(2, &e.J[0], &e.J[1])       // 2J
+	multBlock(2, &e.J[1], &e.J[2])       // 4J
+
+	// The upstream `aesni` code only stores L1, L2, and L4, but it has
+	// the benefit of being written in a real language that has vector
+	// intrinsics.
+
+	// multBlock(0, &e.L, &e.L[0])                // L0 (all `0x00`s)
+	copy(e.L[1][:], extractedKey[32:48])          // L1
+	multBlock(2, &e.L[1], &e.L[2])                // L2=L1*2
+	xorBytes1x16(e.L[2][:], e.L[1][:], e.L[3][:]) // L3 = L2+L1
+	multBlock(2, &e.L[2], &e.L[4])                // L4 = L2*2
+	xorBytes1x16(e.L[4][:], e.L[1][:], e.L[5][:]) // L5 = L4+L1
+	multBlock(2, &e.L[3], &e.L[6])                // L6 = L3*2
+	xorBytes1x16(e.L[6][:], e.L[1][:], e.L[7][:]) // L7 = L6+L1
 
 	e.aes = newAes(&extractedKey)
 }
