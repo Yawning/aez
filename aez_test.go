@@ -9,6 +9,7 @@ package aez
 
 import (
 	"bytes"
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
@@ -1357,13 +1358,37 @@ func TestEncryptDecrypt(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		// Test the cipher.AEAD code as well, for applicable test vectors.
+		var aead cipher.AEAD
+		var ad []byte
+		if len(vecNonce) == aeadNonceSize && vec.tau == aeadOverhead && len(vecData) <= 1 {
+			aead, err = New(vecK)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(vecData) == 1 {
+				ad = vecData[0]
+			}
+		}
+
 		e.init(vecK)
 		c := Encrypt(vecK, vecNonce, vecData, vec.tau, vecM)
 		assertEqual(t, i, vecC, c)
+		if aead != nil {
+			ac := aead.Seal(nil, vecNonce, vecM, ad)
+			assertEqual(t, i, vecC, ac)
+		}
 
 		m, ok := Decrypt(vecK, vecNonce, vecData, vec.tau, vecC)
 		if !ok {
 			t.Fatalf("decrypt failed: [%d]", i)
+		}
+		if aead != nil {
+			am, err := aead.Open(nil, vecNonce, vecC, ad)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertEqual(t, i, vecM, am)
 		}
 		assertEqual(t, i, vecM, m)
 	}
