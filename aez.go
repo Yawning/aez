@@ -494,31 +494,37 @@ func (e *eState) decipher(delta *[blockSize]byte, in, out []byte) {
 	}
 }
 
-func Encrypt(key []byte, nonce []byte, ad [][]byte, tau int, m []byte) []byte {
+// Encrypt encrypts and authenticates the plaintext, authenticates the
+// additional data, and returns the resulting ciphertext.  The length
+// of the authentication tag in bytes is specified by tau.
+func Encrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, plaintext []byte) []byte {
 	var delta [blockSize]byte
-	x := make([]byte, tau+len(m))
+	x := make([]byte, tau+len(plaintext))
 
 	var e eState
 	defer e.reset()
 
 	e.init(key)
-	e.aezHash(nonce, ad, tau*8, delta[:])
-	if len(m) == 0 {
+	e.aezHash(nonce, additionalData, tau*8, delta[:])
+	if len(plaintext) == 0 {
 		e.aezPRF(&delta, tau, x)
 	} else {
-		copy(x, m)
+		copy(x, plaintext)
 		e.encipher(&delta, x, x)
 	}
 
 	return x
 }
 
-func Decrypt(key []byte, nonce []byte, ad [][]byte, tau int, c []byte) ([]byte, bool) {
+// Decrypt decrypts and authenticates the ciphertext, authenticates the
+// additional data, and if successful returns the plaintext and true.  The
+// length of the expected authentication tag in bytes is specified by tau.
+func Decrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, ciphertext []byte) ([]byte, bool) {
 	var delta [blockSize]byte
 	sum := byte(0)
-	x := make([]byte, len(c))
+	x := make([]byte, len(ciphertext))
 
-	if len(c) < tau {
+	if len(ciphertext) < tau {
 		return nil, false
 	}
 
@@ -526,20 +532,20 @@ func Decrypt(key []byte, nonce []byte, ad [][]byte, tau int, c []byte) ([]byte, 
 	defer e.reset()
 
 	e.init(key)
-	e.aezHash(nonce, ad, tau*8, delta[:])
-	if len(c) == tau {
+	e.aezHash(nonce, additionalData, tau*8, delta[:])
+	if len(ciphertext) == tau {
 		e.aezPRF(&delta, tau, x)
 		for i := 0; i < tau; i++ {
-			sum |= x[i] ^ c[i]
+			sum |= x[i] ^ ciphertext[i]
 		}
 		x = nil
 	} else {
-		e.decipher(&delta, c, x)
+		e.decipher(&delta, ciphertext, x)
 		for i := 0; i < tau; i++ {
-			sum |= x[len(c)-tau+i]
+			sum |= x[len(ciphertext)-tau+i]
 		}
 		if sum == 0 {
-			x = x[:len(c)-tau]
+			x = x[:len(ciphertext)-tau]
 		}
 	}
 	if sum != 0 { // return true if valid, false if invalid
