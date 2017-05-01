@@ -260,9 +260,7 @@ func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte) int {
 func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte) int {
 	var tmp, I [blockSize]byte
 	inBytes := len(in)
-	inBytesOrig := inBytes
 
-	// Pass 2 over intermediate values in out[32..]. Final values written
 	// XXX/performance: Process multiple blocks at once.
 	copy(I[:], e.I[1][:])
 	for i := uint(1); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
@@ -284,42 +282,15 @@ func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte) int {
 		}
 	}
 
-	// Finish Y calculation and finish encryption of fragment bytes
-	inBytes -= 32 // inbytes now has fragment length 0..31
-	if inBytes >= blockSize {
-		e.aes.E10(&e.L[4], S[:], &tmp) // E(-1,4)
-		xorBytes1x16(in, tmp[:], out[:blockSize])
-		e.aes.E4(&zero, &e.I[1], &e.L[4], out[:blockSize], &tmp) // E(0,4)
-		xorBytes1x16(Y[:], tmp[:], Y[:])
-		inBytes -= blockSize
-		in, out = in[blockSize:], out[blockSize:]
-		e.aes.E10(&e.L[5], S[:], &tmp)      // E(-1,5)
-		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
-		copy(out, tmp[:inBytes])
-		memwipe(tmp[inBytes:])
-		tmp[inBytes] = 0x80
-		e.aes.E4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
-		xorBytes1x16(Y[:], tmp[:], Y[:])
-	} else if inBytes > 0 {
-		e.aes.E10(&e.L[4], S[:], &tmp)      // E(-1,4)
-		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
-		copy(out, tmp[:inBytes])
-		memwipe(tmp[inBytes:])
-		tmp[inBytes] = 0x80
-		e.aes.E4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
-		xorBytes1x16(Y[:], tmp[:], Y[:])
-	}
-	in = in[inBytes:]
-
 	memwipe(I[:])
 	memwipe(tmp[:])
 
-	return inBytesOrig - len(in)
+	return inBytes
 }
 
 func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) {
 	var tmp, X, Y, S [blockSize]byte
-	inOrig, outOrig := in, out
+	outOrig, inOrig := out, in
 
 	// Compute X and store intermediate results
 	// Pass 1 over in[0:-32], store intermediate values in out[0:-32]
@@ -347,8 +318,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 	}
 
 	// Calculate S
-	off := len(inOrig) - 32
-	out, in = outOrig[off:], inOrig[off:]
+	out, in = outOrig[len(inOrig)-32:], inOrig[len(inOrig)-32:]
 	e.aes.E4(&zero, &e.I[1], &e.L[(1+d)%8], in[blockSize:2*blockSize], &tmp) // E(0,1+d)
 	xorBytes4x16(X[:], in[:], delta[:], tmp[:], out[:blockSize])
 	e.aes.E10(&e.L[(1+d)%8], out[:blockSize], &tmp) // E(-1,1+d)
@@ -358,10 +328,37 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 
 	// Pass 2 over intermediate values in out[32..]. Final values written
 	out, in = outOrig, inOrig
-	off = e.aezCorePass2(in, out, &Y, &S)
-	out = outOrig[off:]
+	inBytes = e.aezCorePass2(in, out, &Y, &S)
+	out, in = out[len(in)-inBytes:], in[len(in)-inBytes:]
+
+	// Finish Y calculation and finish encryption of fragment bytes
+	inBytes -= 32 // inbytes now has fragment length 0..31
+	if inBytes >= blockSize {
+		e.aes.E10(&e.L[4], S[:], &tmp) // E(-1,4)
+		xorBytes1x16(in, tmp[:], out[:blockSize])
+		e.aes.E4(&zero, &e.I[1], &e.L[4], out[:blockSize], &tmp) // E(0,4)
+		xorBytes1x16(Y[:], tmp[:], Y[:])
+		inBytes -= blockSize
+		in, out = in[blockSize:], out[blockSize:]
+		e.aes.E10(&e.L[5], S[:], &tmp)      // E(-1,5)
+		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
+		copy(out, tmp[:inBytes])
+		memwipe(tmp[inBytes:])
+		tmp[inBytes] = 0x80
+		e.aes.E4(&zero, &e.I[1], &e.L[5], tmp[:], &tmp) // E(0,5)
+		xorBytes1x16(Y[:], tmp[:], Y[:])
+	} else if inBytes > 0 {
+		e.aes.E10(&e.L[4], S[:], &tmp)      // E(-1,4)
+		xorBytes(in, tmp[:], tmp[:inBytes]) // non-16 byte xorBytes()
+		copy(out, tmp[:inBytes])
+		memwipe(tmp[inBytes:])
+		tmp[inBytes] = 0x80
+		e.aes.E4(&zero, &e.I[1], &e.L[4], tmp[:], &tmp) // E(0,4)
+		xorBytes1x16(Y[:], tmp[:], Y[:])
+	}
 
 	// Finish encryption of last two blocks
+	out = outOrig[len(inOrig)-32:]
 	e.aes.E10(&e.L[(2-d)%8], out[blockSize:], &tmp) // E(-1,2-d)
 	xorBytes1x16(out, tmp[:], out[:blockSize])
 	e.aes.E4(&zero, &e.I[1], &e.L[(2-d)%8], out[:blockSize], &tmp) // E(0,2-d)
