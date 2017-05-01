@@ -9,6 +9,8 @@
 
 package aez
 
+var useAESNI = false
+
 //go:noescape
 func cpuidAMD64(cpuidParams *uint32)
 
@@ -19,10 +21,16 @@ func xorBytes1x16AMD64SSE2(a, b, dst *byte)
 func xorBytes4x16AMD64SSE2(a, b, c, d, dst *byte)
 
 //go:noescape
-func aezE4AMD64AESNI(j, i, l, k, s, dst *byte)
+func aezE4AMD64AESNI(j, i, l, k, src, dst *byte)
 
 //go:noescape
-func aezE10AMD64AESNI(l, k, s, dst *byte)
+func aezE10AMD64AESNI(l, k, src, dst *byte)
+
+//go:noescape
+func aezCorePass1AMD64AESNI(src, dst, x, i, l, k, consts *byte, sz int)
+
+//go:noescape
+func aezCorePass2AMD64AESNI(dst, y, s, j, i, l, k, consts *byte, sz int)
 
 func xorBytes1x16(a, b, dst []byte) {
 	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
@@ -55,6 +63,50 @@ func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {
 	return r
 }
 
+var dblConsts = [32]byte{
+	// PSHUFB constant
+	0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08,
+	0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+
+	// Mask constant
+	0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+	0x01, 0x00, 0x00, 0x00, 0x87, 0x00, 0x00, 0x00,
+}
+
+func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
+	// The ref code handles this, the AES-NI does not.
+	if len(in) < 64 {
+		return
+	}
+
+	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
+	if !useAESNI {
+		e.aezCorePass1Ref(in, out, X)
+		return
+	}
+
+	// Call the AES-NI implementation.
+	a := e.aes.(*roundAESNI)
+	aezCorePass1AMD64AESNI(&in[0], &out[0], &X[0], &e.I[1][0], &e.L[0][0], &a.keys[0], &dblConsts[0], sz)
+}
+
+func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
+	// The ref code handles this, the AES-NI does not.
+	if len(in) < 64 {
+		return
+	}
+
+	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
+	if !useAESNI {
+		e.aezCorePass2Ref(in, out, Y, S)
+		return
+	}
+
+	// Call the AES-NI implementation.
+	a := e.aes.(*roundAESNI)
+	aezCorePass2AMD64AESNI(&out[0], &Y[0], &S[0], &e.J[0][0], &e.I[1][0], &e.L[0][0], &a.keys[0], &dblConsts[0], sz)
+}
+
 func supportsAESNI() bool {
 	const (
 		aesniBit   = 1 << 25
@@ -75,7 +127,8 @@ func supportsAESNI() bool {
 }
 
 func init() {
-	if supportsAESNI() {
+	useAESNI = supportsAESNI()
+	if useAESNI {
 		newAes = newRoundAESNI
 	}
 }

@@ -20,3 +20,11 @@ func xorBytes4x16(a, b, c, d, dst []byte) {
 		dst[i] = a[i] ^ b[i] ^ c[i] ^ d[i]
 	}
 }
+
+func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
+	e.aezCorePass1Ref(in, out, X)
+}
+
+func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
+	e.aezCorePass2Ref(in, out, Y, S)
+}

@@ -57,6 +57,8 @@ func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 
 type aesImpl interface {
 	Reset()
+
+	// XXX: Rename to AES4/AES10.
 	E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte)
 	E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte)
 }
@@ -232,10 +234,9 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	memwipe(buf[:])
 }
 
-func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte) {
+func (e *eState) aezCorePass1Ref(in, out []byte, X *[blockSize]byte) {
 	var tmp, I [blockSize]byte
 
-	// XXX/performance: Process multiple blocks at once.
 	copy(I[:], e.I[1][:])
 	for i, inBytes := uint(1), len(in); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
 		e.aes.E4(&e.J[0], &I, &e.L[i%8], in[blockSize:blockSize*2], &tmp) // E(1,i)
@@ -254,10 +255,9 @@ func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte) {
 	memwipe(I[:])
 }
 
-func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte) {
+func (e *eState) aezCorePass2Ref(in, out []byte, Y, S *[blockSize]byte) {
 	var tmp, I [blockSize]byte
 
-	// XXX/performance: Process multiple blocks at once.
 	copy(I[:], e.I[1][:])
 	for i, inBytes := uint(1), len(in); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
 		e.aes.E4(&e.J[1], &I, &e.L[i%8], S[:], &tmp) // E(2,i)
@@ -297,7 +297,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 
 	// Compute X and store intermediate results
 	// Pass 1 over in[0:-32], store intermediate values in out[0:-32]
-	e.aezCorePass1(in, out, &X)
+	e.aezCorePass1(in, out, &X, initialBytes)
 
 	// Finish X calculation
 	in = in[initialBytes:]
@@ -324,7 +324,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 
 	// Pass 2 over intermediate values in out[32..]. Final values written
 	out, in = outOrig, inOrig
-	e.aezCorePass2(in, out, &Y, &S)
+	e.aezCorePass2(in, out, &Y, &S, initialBytes)
 
 	// Finish Y calculation and finish encryption of fragment bytes
 	out, in = out[initialBytes:], in[initialBytes:]
