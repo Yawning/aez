@@ -28,7 +28,7 @@ func xorBytes1x16(a, b, dst []byte) {
 	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
 }
 
-func xorBytes4x16(a, b, c, d []byte, dst *[blockSize]byte) {
+func xorBytes4x16(a, b, c, d, dst []byte) {
 	xorBytes4x16AMD64SSE2(&a[0], &b[0], &c[0], &d[0], &dst[0])
 }
 

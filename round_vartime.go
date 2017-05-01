@@ -376,7 +376,7 @@ func (r *roundVartime) rounds(block *[blockSize]byte, rounds int) {
 }
 
 func (r *roundVartime) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
-	xorBytes4x16(j[:], i[:], l[:], src, dst)
+	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 	r.rounds(dst, 4)
 }
 

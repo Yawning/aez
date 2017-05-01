@@ -15,8 +15,8 @@ func xorBytes1x16(a, b, dst []byte) {
 	}
 }
 
-func xorBytes4x16(a, b, c, d []byte, dst *[blockSize]byte) {
-	for i := range dst {
+func xorBytes4x16(a, b, c, d, dst []byte) {
+	for i := 0; i < 16; i++ {
 		dst[i] = a[i] ^ b[i] ^ c[i] ^ d[i]
 	}
 }
