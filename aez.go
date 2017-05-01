@@ -57,7 +57,6 @@ func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 
 type aesImpl interface {
 	Reset()
-	Rounds(*[blockSize]byte, int)
 	E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte)
 	E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte)
 }
@@ -207,10 +206,8 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 
 	off := 0
 	for tau >= blockSize {
-		// xorBytes1x16(delta, ctr, buf)
-		// E(-1, 3, buf, result[off:off+blockSize])
-		xorBytes3x16(delta, &ctr, &e.L[3], &buf)
-		e.aes.Rounds(&buf, 10)
+		xorBytes1x16(delta[:], ctr[:], buf[:])
+		e.aes.E10(&e.L[3], buf[:], &buf) // E(-1,3)
 		copy(result[off:], buf[:])
 
 		i := 15
@@ -226,10 +223,8 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 		off += blockSize
 	}
 	if tau > 0 {
-		// xorBytes1x16(delta, ctr, buf)
-		// E(-1, 3, buf, result[off:off+blockSize])
-		xorBytes3x16(delta, &ctr, &e.L[3], &buf)
-		e.aes.Rounds(&buf, 10)
+		xorBytes1x16(delta[:], ctr[:], buf[:])
+		e.aes.E10(&e.L[3], buf[:], &buf) // E(-1,3)
 
 		copy(result[off:], buf[:])
 	}

@@ -53,17 +53,6 @@ func (r *roundAESNI) Reset() {
 	memwipe(r.keys[:])
 }
 
-func (r *roundAESNI) Rounds(block *[blockSize]byte, rounds int) {
-	switch rounds {
-	case 4:
-		aes4AMD64AESNI(&block[0], &r.keys[0])
-	case 10:
-		aes10AMD64AESNI(&block[0], &r.keys[0])
-	default:
-		panic("aez: roundAesni.Rounds(): round count")
-	}
-}
-
 func (r *roundAESNI) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	aezE4AMD64AESNI(&j[0], &i[0], &l[0], &r.keys[0], &src[0], &dst[0])
 }

@@ -318,7 +318,7 @@ func (r *roundVartime) Reset() {
 	memwipeU32(r.aes4Key[:])
 }
 
-func (r *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
+func (r *roundVartime) rounds(block *[blockSize]byte, rounds int) {
 	var t0, t1, t2, t3 uint32
 	var keys []uint32
 	switch rounds {
@@ -377,12 +377,12 @@ func (r *roundVartime) Rounds(block *[blockSize]byte, rounds int) {
 
 func (r *roundVartime) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes4x16(j[:], i[:], l[:], src, dst)
-	r.Rounds(dst, 4)
+	r.rounds(dst, 4)
 }
 
 func (r *roundVartime) E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes1x16(src, l[:], dst[:])
-	r.Rounds(dst, 10)
+	r.rounds(dst, 10)
 }
 
 func memwipeU32(b []uint32) {
