@@ -16,16 +16,7 @@ func cpuidAMD64(cpuidParams *uint32)
 func xorBytes1x16AMD64SSE2(a, b, dst *byte)
 
 //go:noescape
-func xorBytes3x16AMD64SSE2(a, b, c, dst *byte)
-
-//go:noescape
 func xorBytes4x16AMD64SSE2(a, b, c, d, dst *byte)
-
-//go:noescape
-func aes4AMD64AESNI(s, k *byte)
-
-//go:noescape
-func aes10AMD64AESNI(s, k *byte)
 
 //go:noescape
 func aezE4AMD64AESNI(j, i, l, k, s, dst *byte)
@@ -35,10 +26,6 @@ func aezE10AMD64AESNI(l, k, s, dst *byte)
 
 func xorBytes1x16(a, b, dst []byte) {
 	xorBytes1x16AMD64SSE2(&a[0], &b[0], &dst[0])
-}
-
-func xorBytes3x16(a, b, c, dst *[blockSize]byte) {
-	xorBytes3x16AMD64SSE2(&a[0], &b[0], &c[0], &dst[0])
 }
 
 func xorBytes4x16(a, b, c, d []byte, dst *[blockSize]byte) {

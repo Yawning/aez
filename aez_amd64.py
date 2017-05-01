@@ -59,32 +59,6 @@ with Function("xorBytes1x16AMD64SSE2", (a, b, dst)):
 
     RETURN()
 
-with Function("xorBytes3x16AMD64SSE2", (a, b, c, dst)):
-    reg_a = GeneralPurposeRegister64()
-    reg_b = GeneralPurposeRegister64()
-    reg_c = GeneralPurposeRegister64()
-    reg_dst = GeneralPurposeRegister64()
-
-    LOAD.ARGUMENT(reg_a, a)
-    LOAD.ARGUMENT(reg_b, b)
-    LOAD.ARGUMENT(reg_c, c)
-    LOAD.ARGUMENT(reg_dst, dst)
-
-    xmm_a = XMMRegister()
-    xmm_b = XMMRegister()
-    xmm_c = XMMRegister()
-
-    MOVDQU(xmm_a, [reg_a])
-    MOVDQU(xmm_b, [reg_b])
-    MOVDQU(xmm_c, [reg_c])
-
-    PXOR(xmm_a, xmm_b)
-    PXOR(xmm_a, xmm_c)
-
-    MOVDQU([reg_dst], xmm_a)
-
-    RETURN()
-
 with Function("xorBytes4x16AMD64SSE2", (a, b, c, d, dst)):
     reg_a = GeneralPurposeRegister64()
     reg_b = GeneralPurposeRegister64()
@@ -121,81 +95,11 @@ with Function("xorBytes4x16AMD64SSE2", (a, b, c, d, dst)):
 # so just use the `zen` uarch, because it supports everything.
 #
 
-s = Argument(ptr(uint8_t))
-k = Argument(ptr(const_uint8_t))
-
-with Function("aes4AMD64AESNI", (s, k), target=uarch.zen):
-    reg_s = GeneralPurposeRegister64()
-    reg_k = GeneralPurposeRegister64()
-
-    LOAD.ARGUMENT(reg_s, s)
-    LOAD.ARGUMENT(reg_k, k)
-
-    xmm_state = XMMRegister()
-    xmm_i = XMMRegister()
-    xmm_j = XMMRegister()
-    xmm_l = XMMRegister()
-    xmm_zero = XMMRegister()
-
-    PXOR(xmm_zero, xmm_zero)
-    MOVDQU(xmm_state, [reg_s])
-    MOVDQA(xmm_i, [reg_k])
-    MOVDQA(xmm_j, [reg_k+16])
-    MOVDQA(xmm_l, [reg_k+32])
-
-    AESENC(xmm_state, xmm_j)
-    AESENC(xmm_state, xmm_i)
-    AESENC(xmm_state, xmm_l)
-    AESENC(xmm_state, xmm_zero)
-
-    MOVDQU([reg_s], xmm_state)
-
-    PXOR(xmm_i, xmm_i)
-    PXOR(xmm_j, xmm_j)
-    PXOR(xmm_l, xmm_l)
-
-    RETURN()
-
-with Function("aes10AMD64AESNI", (s, k), target=uarch.zen):
-    reg_s = GeneralPurposeRegister64()
-    reg_k = GeneralPurposeRegister64()
-
-    LOAD.ARGUMENT(reg_s, s)
-    LOAD.ARGUMENT(reg_k, k)
-
-    xmm_state = XMMRegister()
-    xmm_i = XMMRegister()
-    xmm_j = XMMRegister()
-    xmm_l = XMMRegister()
-
-    MOVDQU(xmm_state, [reg_s])
-    MOVDQA(xmm_i, [reg_k])
-    MOVDQA(xmm_j, [reg_k+16])
-    MOVDQA(xmm_l, [reg_k+32])
-
-    AESENC(xmm_state, xmm_i)
-    AESENC(xmm_state, xmm_j)
-    AESENC(xmm_state, xmm_l)
-    AESENC(xmm_state, xmm_i)
-    AESENC(xmm_state, xmm_j)
-    AESENC(xmm_state, xmm_l)
-    AESENC(xmm_state, xmm_i)
-    AESENC(xmm_state, xmm_j)
-    AESENC(xmm_state, xmm_l)
-    AESENC(xmm_state, xmm_i)
-
-    MOVDQU([reg_s], xmm_state)
-
-    PXOR(xmm_i, xmm_i)
-    PXOR(xmm_j, xmm_j)
-    PXOR(xmm_l, xmm_l)
-
-    RETURN()
-
 j = Argument(ptr(const_uint8_t))
 i = Argument(ptr(const_uint8_t))
 l = Argument(ptr(const_uint8_t))
-src = Argument(ptr(const_uint8_t))
+k = Argument(ptr(const_uint8_t))
+s = Argument(ptr(uint8_t))
 
 with Function("aezE4AMD64AESNI", (j, i, l, k, s, dst), target=uarch.zen):
     reg_j = GeneralPurposeRegister64()

@@ -25,20 +25,6 @@ TEXT ·xorBytes1x16AMD64SSE2(SB),4,$0-24
 	MOVOU X0, 0(CX)
 	RET
 
-// func xorBytes3x16AMD64SSE2(a *uint8, b *uint8, c *uint8, dst *uint8)
-TEXT ·xorBytes3x16AMD64SSE2(SB),4,$0-32
-	MOVQ a+0(FP), AX
-	MOVQ b+8(FP), BX
-	MOVQ c+16(FP), CX
-	MOVQ dst+24(FP), DX
-	MOVOU 0(AX), X0
-	MOVOU 0(BX), X1
-	MOVOU 0(CX), X2
-	PXOR X1, X0
-	PXOR X2, X0
-	MOVOU X0, 0(DX)
-	RET
-
 // func xorBytes4x16AMD64SSE2(a *uint8, b *uint8, c *uint8, d *uint8, dst *uint8)
 TEXT ·xorBytes4x16AMD64SSE2(SB),4,$0-40
 	MOVQ a+0(FP), AX
@@ -54,49 +40,6 @@ TEXT ·xorBytes4x16AMD64SSE2(SB),4,$0-40
 	PXOR X3, X2
 	PXOR X2, X0
 	MOVOU X0, 0(DI)
-	RET
-
-// func aes4AMD64AESNI(s *uint8, k *uint8)
-TEXT ·aes4AMD64AESNI(SB),4,$0-16
-	MOVQ s+0(FP), AX
-	MOVQ k+8(FP), BX
-	PXOR X0, X0
-	MOVOU 0(AX), X1
-	MOVO 0(BX), X2
-	MOVO 16(BX), X3
-	MOVO 32(BX), X4
-	AESENC X3, X1
-	AESENC X2, X1
-	AESENC X4, X1
-	AESENC X0, X1
-	MOVOU X1, 0(AX)
-	PXOR X2, X2
-	PXOR X3, X3
-	PXOR X4, X4
-	RET
-
-// func aes10AMD64AESNI(s *uint8, k *uint8)
-TEXT ·aes10AMD64AESNI(SB),4,$0-16
-	MOVQ s+0(FP), AX
-	MOVQ k+8(FP), BX
-	MOVOU 0(AX), X0
-	MOVO 0(BX), X1
-	MOVO 16(BX), X2
-	MOVO 32(BX), X3
-	AESENC X1, X0
-	AESENC X2, X0
-	AESENC X3, X0
-	AESENC X1, X0
-	AESENC X2, X0
-	AESENC X3, X0
-	AESENC X1, X0
-	AESENC X2, X0
-	AESENC X3, X0
-	AESENC X1, X0
-	MOVOU X0, 0(AX)
-	PXOR X1, X1
-	PXOR X2, X2
-	PXOR X3, X3
 	RET
 
 // func aezE4AMD64AESNI(j *uint8, i *uint8, l *uint8, k *uint8, s *uint8, dst *uint8)
