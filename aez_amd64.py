@@ -172,7 +172,7 @@ l = Argument(ptr(const_uint8_t))
 k = Argument(ptr(const_uint8_t))
 src = Argument(ptr(uint8_t))
 
-with Function("aezE4AMD64AESNI", (j, i, l, k, src, dst), target=uarch.zen):
+with Function("aezAES4AMD64AESNI", (j, i, l, k, src, dst), target=uarch.zen):
     reg_j = GeneralPurposeRegister64()
     reg_i = GeneralPurposeRegister64()
     reg_l = GeneralPurposeRegister64()
@@ -217,7 +217,7 @@ with Function("aezE4AMD64AESNI", (j, i, l, k, src, dst), target=uarch.zen):
 
     RETURN()
 
-with Function("aezE10AMD64AESNI", (l, k, src, dst), target=uarch.zen):
+with Function("aezAES10AMD64AESNI", (l, k, src, dst), target=uarch.zen):
     reg_l = GeneralPurposeRegister64()
     reg_k = GeneralPurposeRegister64()
     reg_src = GeneralPurposeRegister64()

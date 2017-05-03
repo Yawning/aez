@@ -375,12 +375,12 @@ func (r *roundVartime) rounds(block *[blockSize]byte, rounds int) {
 	binary.BigEndian.PutUint32(block[12:], s3)
 }
 
-func (r *roundVartime) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+func (r *roundVartime) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 	r.rounds(dst, 4)
 }
 
-func (r *roundVartime) E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+func (r *roundVartime) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes1x16(src, l[:], dst[:])
 	r.rounds(dst, 10)
 }

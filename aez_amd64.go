@@ -21,10 +21,10 @@ func xorBytes1x16AMD64SSE2(a, b, dst *byte)
 func xorBytes4x16AMD64SSE2(a, b, c, d, dst *byte)
 
 //go:noescape
-func aezE4AMD64AESNI(j, i, l, k, src, dst *byte)
+func aezAES4AMD64AESNI(j, i, l, k, src, dst *byte)
 
 //go:noescape
-func aezE10AMD64AESNI(l, k, src, dst *byte)
+func aezAES10AMD64AESNI(l, k, src, dst *byte)
 
 //go:noescape
 func aezCorePass1AMD64AESNI(src, dst, x, i, l, k, consts *byte, sz int)
@@ -48,12 +48,12 @@ func (r *roundAESNI) Reset() {
 	memwipe(r.keys[:])
 }
 
-func (r *roundAESNI) E4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
-	aezE4AMD64AESNI(&j[0], &i[0], &l[0], &r.keys[0], &src[0], &dst[0])
+func (r *roundAESNI) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	aezAES4AMD64AESNI(&j[0], &i[0], &l[0], &r.keys[0], &src[0], &dst[0])
 }
 
-func (r *roundAESNI) E10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
-	aezE10AMD64AESNI(&l[0], &r.keys[0], &src[0], &dst[0])
+func (r *roundAESNI) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
+	aezAES10AMD64AESNI(&l[0], &r.keys[0], &src[0], &dst[0])
 }
 
 func newRoundAESNI(extractedKey *[extractedKeySize]byte) aesImpl {

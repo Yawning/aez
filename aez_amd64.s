@@ -42,8 +42,8 @@ TEXT ·xorBytes4x16AMD64SSE2(SB),4,$0-40
 	MOVOU X0, 0(DI)
 	RET
 
-// func aezE4AMD64AESNI(j *uint8, i *uint8, l *uint8, k *uint8, src *uint8, dst *uint8)
-TEXT ·aezE4AMD64AESNI(SB),4,$0-48
+// func aezAES4AMD64AESNI(j *uint8, i *uint8, l *uint8, k *uint8, src *uint8, dst *uint8)
+TEXT ·aezAES4AMD64AESNI(SB),4,$0-48
 	MOVQ j+0(FP), AX
 	MOVQ i+8(FP), BX
 	MOVQ l+16(FP), CX
@@ -71,8 +71,8 @@ TEXT ·aezE4AMD64AESNI(SB),4,$0-48
 	PXOR X3, X3
 	RET
 
-// func aezE10AMD64AESNI(l *uint8, k *uint8, src *uint8, dst *uint8)
-TEXT ·aezE10AMD64AESNI(SB),4,$0-32
+// func aezAES10AMD64AESNI(l *uint8, k *uint8, src *uint8, dst *uint8)
+TEXT ·aezAES10AMD64AESNI(SB),4,$0-32
 	MOVQ l+0(FP), AX
 	MOVQ k+8(FP), BX
 	MOVQ src+16(FP), CX
