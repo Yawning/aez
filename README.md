@@ -7,6 +7,6 @@ output matches [test vectors](https://github.com/nmathewson/aez_test_vectors).
 
 **WARNING: This implementation is NOT ALWAYS CONSTANT TIME**
 
-There have been some minor attempts at optimization, primarily for the lols,
-and it actually is constant time on AMD64 assuming AES-NI is present.  To
-showcase the true potential of the primitive, much more assembly is needed.
+If you're on AMD64 with AES-NI, it is constant time, and the performance is
+fairly good.  Otherwise, why are you looking at this, over alternatives that
+don't use the AES round function?
