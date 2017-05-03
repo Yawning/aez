@@ -1372,17 +1372,18 @@ func TestEncryptDecrypt(t *testing.T) {
 		}
 
 		e.init(vecK)
-		c := Encrypt(vecK, vecNonce, vecData, vec.tau, vecM)
+		c := Encrypt(vecK, vecNonce, vecData, vec.tau, vecM, nil)
 		assertEqual(t, i, vecC, c)
 		if aead != nil {
 			ac := aead.Seal(nil, vecNonce, vecM, ad)
 			assertEqual(t, i, vecC, ac)
 		}
 
-		m, ok := Decrypt(vecK, vecNonce, vecData, vec.tau, vecC)
+		m, ok := Decrypt(vecK, vecNonce, vecData, vec.tau, vecC, nil)
 		if !ok {
 			t.Fatalf("decrypt failed: [%d]", i)
 		}
+		assertEqual(t, i, vecM, m)
 		if aead != nil {
 			am, err := aead.Open(nil, vecNonce, vecC, ad)
 			if err != nil {
@@ -1390,7 +1391,6 @@ func TestEncryptDecrypt(t *testing.T) {
 			}
 			assertEqual(t, i, vecM, am)
 		}
-		assertEqual(t, i, vecM, m)
 	}
 }
 
@@ -1417,23 +1417,27 @@ func doBenchEncrypt(b *testing.B, n int) {
 		b.Fail()
 	}
 
+	const tau = 16
+
 	var nonce [16]byte
 	src := make([]byte, n)
+	dst := make([]byte, n+tau)
+	check := make([]byte, n+tau)
 
 	b.SetBytes(int64(n))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StartTimer()
-		dst := Encrypt(key[:], nonce[:], nil, 16, src[:n])
+		dst = Encrypt(key[:], nonce[:], nil, tau, src[:n], dst[:0])
 		b.StopTimer()
-		dec, ok := Decrypt(key[:], nonce[:], nil, 16, dst)
+		dec, ok := Decrypt(key[:], nonce[:], nil, tau, dst, check[:0])
 		if !ok {
 			b.Fatalf("decrypt failed")
 		}
 		if !bytes.Equal(dec, src) {
 			b.Fatalf("decrypt produced invalid output")
 		}
-		src = dec
+		copy(src, dst[:n])
 	}
 
 	benchOutput = src

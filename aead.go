@@ -65,7 +65,8 @@ func (a *AeadAEZ) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 	if additionalData != nil {
 		ad = append(ad, additionalData)
 	}
-	c := Encrypt(a.key[:], nonce, ad, aeadOverhead, plaintext)
+	// WARNING: The AEAD interface expects plaintext/dst overlap to be allowed.
+	c := Encrypt(a.key[:], nonce, ad, aeadOverhead, plaintext, nil)
 	dst = append(dst, c...)
 
 	return dst
@@ -85,7 +86,8 @@ func (a *AeadAEZ) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, e
 	if additionalData != nil {
 		ad = append(ad, additionalData)
 	}
-	d, ok := Decrypt(a.key[:], nonce, ad, aeadOverhead, ciphertext)
+	// WARNING: The AEAD interface expects ciphertext/dst overlap to be allowed.
+	d, ok := Decrypt(a.key[:], nonce, ad, aeadOverhead, ciphertext, nil)
 	if !ok {
 		return nil, errOpen
 	}

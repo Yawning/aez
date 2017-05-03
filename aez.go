@@ -477,11 +477,22 @@ func (e *eState) decipher(delta *[blockSize]byte, in, out []byte) {
 }
 
 // Encrypt encrypts and authenticates the plaintext, authenticates the
-// additional data, and returns the resulting ciphertext.  The length
-// of the authentication tag in bytes is specified by tau.
-func Encrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, plaintext []byte) []byte {
+// additional data, and appends the result to ciphertext, returning the
+// updated slice.  The length of the authentication tag in bytes is specified
+// by tau.  The plaintext and dst slices MUST NOT overlap.
+func Encrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, plaintext, dst []byte) []byte {
 	var delta [blockSize]byte
-	x := make([]byte, tau+len(plaintext))
+
+	var x []byte
+	dstSz, xSz := len(dst), len(plaintext)+tau
+	if cap(dst) >= dstSz+xSz {
+		dst = dst[:dstSz+xSz]
+	} else {
+		x = make([]byte, dstSz+xSz)
+		copy(x, dst)
+		dst = x
+	}
+	x = dst[dstSz:]
 
 	var e eState
 	defer e.reset()
@@ -491,24 +502,37 @@ func Encrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, plainte
 	if len(plaintext) == 0 {
 		e.aezPRF(&delta, tau, x)
 	} else {
+		memwipe(x[len(plaintext):])
 		copy(x, plaintext)
 		e.encipher(&delta, x, x)
 	}
 
-	return x
+	return dst
 }
 
 // Decrypt decrypts and authenticates the ciphertext, authenticates the
-// additional data, and if successful returns the plaintext and true.  The
-// length of the expected authentication tag in bytes is specified by tau.
-func Decrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, ciphertext []byte) ([]byte, bool) {
+// additional data, and if successful appends the resulting plaintext to the
+// provided slice and returns the updated slice and true.  The length of the
+// expected authentication tag in bytes is specified by tau.  The ciphertext
+// and dst slices MUST NOT overlap.
+func Decrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, ciphertext, dst []byte) ([]byte, bool) {
 	var delta [blockSize]byte
 	sum := byte(0)
-	x := make([]byte, len(ciphertext))
 
 	if len(ciphertext) < tau {
 		return nil, false
 	}
+
+	var x []byte
+	dstSz, xSz := len(dst), len(ciphertext)
+	if cap(dst) >= dstSz+xSz {
+		dst = dst[:dstSz+xSz]
+	} else {
+		x = make([]byte, dstSz+xSz)
+		copy(x, dst)
+		dst = x
+	}
+	x = dst[dstSz:]
 
 	var e eState
 	defer e.reset()
@@ -520,20 +544,20 @@ func Decrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, ciphert
 		for i := 0; i < tau; i++ {
 			sum |= x[i] ^ ciphertext[i]
 		}
-		x = nil
+		dst = dst[:dstSz]
 	} else {
 		e.decipher(&delta, ciphertext, x)
 		for i := 0; i < tau; i++ {
 			sum |= x[len(ciphertext)-tau+i]
 		}
 		if sum == 0 {
-			x = x[:len(ciphertext)-tau]
+			dst = dst[:dstSz+len(ciphertext)-tau]
 		}
 	}
 	if sum != 0 { // return true if valid, false if invalid
 		return nil, false
 	}
-	return x, true
+	return dst, true
 }
 
 func memwipe(b []byte) {
