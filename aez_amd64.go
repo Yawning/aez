@@ -15,6 +15,9 @@ var useAESNI = false
 func cpuidAMD64(cpuidParams *uint32)
 
 //go:noescape
+func resetAMD64SSE2()
+
+//go:noescape
 func xorBytes1x16AMD64SSE2(a, b, dst *byte)
 
 //go:noescape
@@ -46,6 +49,7 @@ type roundAESNI struct {
 
 func (r *roundAESNI) Reset() {
 	memwipe(r.keys[:])
+	resetAMD64SSE2()
 }
 
 func (r *roundAESNI) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]byte) {

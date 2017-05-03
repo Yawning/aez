@@ -32,6 +32,25 @@ with Function("cpuidAMD64", (cpuidParams,)):
 
     RETURN()
 
+with Function("resetAMD64SSE2", ()):
+    PXOR(registers.xmm0, registers.xmm0)
+    PXOR(registers.xmm1, registers.xmm1)
+    PXOR(registers.xmm2, registers.xmm2)
+    PXOR(registers.xmm3, registers.xmm3)
+    PXOR(registers.xmm4, registers.xmm4)
+    PXOR(registers.xmm5, registers.xmm5)
+    PXOR(registers.xmm6, registers.xmm6)
+    PXOR(registers.xmm7, registers.xmm7)
+    PXOR(registers.xmm8, registers.xmm8)
+    PXOR(registers.xmm9, registers.xmm9)
+    PXOR(registers.xmm10, registers.xmm10)
+    PXOR(registers.xmm11, registers.xmm10)
+    PXOR(registers.xmm12, registers.xmm12)
+    PXOR(registers.xmm13, registers.xmm13)
+    PXOR(registers.xmm14, registers.xmm14)
+    PXOR(registers.xmm15, registers.xmm15)
+    RETURN()
+
 a = Argument(ptr(const_uint8_t))
 b = Argument(ptr(const_uint8_t))
 c = Argument(ptr(const_uint8_t))
@@ -211,10 +230,6 @@ with Function("aezAES4AMD64AESNI", (j, i, l, k, src, dst), target=uarch.zen):
 
     MOVDQU([reg_dst], xmm_state)
 
-    PXOR(xmm_i, xmm_i)
-    PXOR(xmm_j, xmm_j)
-    PXOR(xmm_l, xmm_l)
-
     RETURN()
 
 with Function("aezAES10AMD64AESNI", (l, k, src, dst), target=uarch.zen):
@@ -249,10 +264,6 @@ with Function("aezAES10AMD64AESNI", (l, k, src, dst), target=uarch.zen):
     AESENC(xmm_state, xmm_i)
 
     MOVDQU([reg_dst], xmm_state)
-
-    PXOR(xmm_i, xmm_i)
-    PXOR(xmm_j, xmm_j)
-    PXOR(xmm_l, xmm_l)
 
     RETURN()
 
@@ -667,8 +678,6 @@ with Function("aezCorePass1AMD64AESNI", (src, dst, x, i, l, k, consts, sz), targ
 
     # Write back X.
     MOVDQU([reg_x], xmm_x)
-
-    # Clear all the XMM registers. XXX: move to a defer()
 
     RETURN()
 
@@ -1261,7 +1270,5 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
 
     # Write back Y.
     MOVDQU([reg_y], xmm_y)
-
-    # Clear all the XMM registers. XXX: move to a defer()
 
     RETURN()

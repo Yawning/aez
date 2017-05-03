@@ -14,6 +14,26 @@ TEXT ·cpuidAMD64(SB),4,$0-8
 	MOVL DX, 12(R15)
 	RET
 
+// func resetAMD64SSE2()
+TEXT ·resetAMD64SSE2(SB),4,$0
+	PXOR X0, X0
+	PXOR X1, X1
+	PXOR X2, X2
+	PXOR X3, X3
+	PXOR X4, X4
+	PXOR X5, X5
+	PXOR X6, X6
+	PXOR X7, X7
+	PXOR X8, X8
+	PXOR X9, X9
+	PXOR X10, X10
+	PXOR X10, X11
+	PXOR X12, X12
+	PXOR X13, X13
+	PXOR X14, X14
+	PXOR X15, X15
+	RET
+
 // func xorBytes1x16AMD64SSE2(a *uint8, b *uint8, dst *uint8)
 TEXT ·xorBytes1x16AMD64SSE2(SB),4,$0-24
 	MOVQ a+0(FP), AX
@@ -66,9 +86,6 @@ TEXT ·aezAES4AMD64AESNI(SB),4,$0-48
 	AESENC X3, X0
 	AESENC X4, X0
 	MOVOU X0, 0(SI)
-	PXOR X2, X2
-	PXOR X1, X1
-	PXOR X3, X3
 	RET
 
 // func aezAES10AMD64AESNI(l *uint8, k *uint8, src *uint8, dst *uint8)
@@ -94,9 +111,6 @@ TEXT ·aezAES10AMD64AESNI(SB),4,$0-32
 	AESENC X1, X0
 	AESENC X2, X0
 	MOVOU X0, 0(DX)
-	PXOR X2, X2
-	PXOR X3, X3
-	PXOR X1, X1
 	RET
 
 // func aezCorePass1AMD64AESNI(src *uint8, dst *uint8, x *uint8, i *uint8, l *uint8, k *uint8, consts *uint8, sz *uint)
