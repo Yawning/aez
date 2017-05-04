@@ -390,8 +390,8 @@ process_64bytes:
 	ADDQ $128, DI
 	SUBQ $64, DI
 	JCS process_32bytes
-	LEAQ 0(SI*8), BP
-	SHLQ $1, BP
+	MOVQ SI, BP
+	SHLQ $4, BP
 	ADDQ DX, BP
 	MOVOU 16(AX), X10
 	MOVOU 48(AX), X11
@@ -442,8 +442,7 @@ process_32bytes:
 	SUBQ $32, DI
 	JCS out
 	ANDQ $7, SI
-	LEAQ 0(SI*8), SI
-	SHLQ $1, SI
+	SHLQ $4, SI
 	ADDQ SI, DX
 	MOVOU 16(AX), X10
 	MOVO X10, X6
@@ -907,8 +906,8 @@ process_64bytes:
 	ADDQ $128, DI
 	SUBQ $64, DI
 	JCS process_32bytes
-	LEAQ 0(SI*8), BP
-	SHLQ $1, BP
+	MOVQ SI, BP
+	SHLQ $4, BP
 	ADDQ DX, BP
 	MOVO X6, X7
 	PXOR X4, X7
@@ -977,8 +976,7 @@ process_32bytes:
 	SUBQ $32, DI
 	JCS out
 	ANDQ $7, SI
-	LEAQ 0(SI*8), SI
-	SHLQ $1, SI
+	SHLQ $4, SI
 	ADDQ SI, DX
 	MOVO X6, X7
 	PXOR X4, X7

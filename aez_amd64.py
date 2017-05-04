@@ -583,8 +583,8 @@ with Function("aezCorePass1AMD64AESNI", (src, dst, x, i, l, k, consts, sz), targ
     #
 
     reg_l_offset = reg_tmp
-    LEA(reg_l_offset, [reg_idx*8])
-    SHL(reg_l_offset, 1)
+    MOV(reg_l_offset, reg_idx)
+    SHL(reg_l_offset, 4)
     ADD(reg_l_offset, reg_l) # reg_l_offset = reg_l + reg_idx*16 (L[i%8])
 
     # o0 = aes4(o0 ^ J ^ I ^ L[(i+0)%8], keys) // E(1,i)
@@ -646,8 +646,7 @@ with Function("aezCorePass1AMD64AESNI", (src, dst, x, i, l, k, consts, sz), targ
     # Pick the final L from the table.  This is the only time
     # where wrapping needs to happen based on the index.
     AND(reg_idx, 7)
-    LEA(reg_idx, [reg_idx*8]) # reg_idx *= 8
-    SHL(reg_idx, 1)           # reg_idx *= 2
+    SHL(reg_idx, 4)
     ADD(reg_l, reg_idx)       # reg_l += reg_idx (&L[i%8])
 
     # o0 = aes4(o0 ^ J ^ I ^ L[i%8], keys) // E(1,i)
@@ -1135,8 +1134,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     #
 
     reg_l_offset = reg_tmp
-    LEA(reg_l_offset, [reg_idx*8])
-    SHL(reg_l_offset, 1)
+    MOV(reg_l_offset, reg_idx)
+    SHL(reg_l_offset, 4)
     ADD(reg_l_offset, reg_l) # reg_l_offset = reg_l + reg_idx*16 (L[i%8])
 
     # o0 = aes4(J[1] ^ I ^ L[(i+0)%8] ^ S[:], keys) // E(1,i)
@@ -1221,8 +1220,7 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     # Pick the final L from the table.  This is the only time
     # where wrapping needs to happen based on the index.
     AND(reg_idx, 7)
-    LEA(reg_idx, [reg_idx*8]) # reg_idx *= 8
-    SHL(reg_idx, 1)           # reg_idx *= 2
+    SHL(reg_idx, 4)
     ADD(reg_l, reg_idx)       # reg_l += reg_idx (&L[i%8])
 
     # o0 = aes4(J[1] ^ I ^ L[i%8] ^ S[:], keys) // E(1,i)
