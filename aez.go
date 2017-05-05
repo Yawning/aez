@@ -308,7 +308,9 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 
 	// Compute X and store intermediate results
 	// Pass 1 over in[0:-32], store intermediate values in out[0:-32]
-	e.aezCorePass1(in, out, &X, initialBytes)
+	if len(in) >= 64 {
+		e.aezCorePass1(in, out, &X, initialBytes)
+	}
 
 	// Finish X calculation
 	in = in[initialBytes:]
@@ -335,7 +337,9 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 
 	// Pass 2 over intermediate values in out[32..]. Final values written
 	out, in = outOrig, inOrig
-	e.aezCorePass2(in, out, &Y, &S, initialBytes)
+	if len(in) >= 64 {
+		e.aezCorePass2(in, out, &Y, &S, initialBytes)
+	}
 
 	// Finish Y calculation and finish encryption of fragment bytes
 	out, in = out[initialBytes:], in[initialBytes:]
