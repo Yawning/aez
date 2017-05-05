@@ -78,14 +78,13 @@ var dblConsts = [32]byte{
 }
 
 func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
-	// The ref code handles this, the AES-NI does not.
 	if len(in) < 64 {
 		return
 	}
 
 	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
 	if !useAESNI {
-		e.aezCorePass1Ref(in, out, X)
+		e.aezCorePass1BS(in, out, X, sz)
 		return
 	}
 
@@ -95,14 +94,13 @@ func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
 }
 
 func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
-	// The ref code handles this, the AES-NI does not.
 	if len(in) < 64 {
 		return
 	}
 
 	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
 	if !useAESNI {
-		e.aezCorePass2Ref(in, out, Y, S)
+		e.aezCorePass2BS(in, out, Y, S, sz)
 		return
 	}
 

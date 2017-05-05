@@ -39,6 +39,28 @@ func (r *roundB32) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	r.round(&q, r.skey[24:]) // zero
 	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
+
+	memwipeU32(q[:])
+}
+
+func (r *roundB32) aes4x2(j0, i0, l0 *[blockSize]byte, src0 []byte, dst0 *[blockSize]byte, j1, i1, l1 *[blockSize]byte, src1 []byte, dst1 *[blockSize]byte) {
+	// XXX/performance: Fairly sure i, src, and dst are the only things
+	// that are ever different here so XORs can be pruned.
+
+	var q [8]uint32
+	xorBytes4x16(j0[:], i0[:], l0[:], src0, dst0[:])
+	xorBytes4x16(j1[:], i1[:], l1[:], src1, dst1[:])
+
+	r.Load8xU32(&q, dst0[:], dst1[:])
+	r.Ortho(q[:])
+	r.round(&q, r.skey[8:])  // J
+	r.round(&q, r.skey[0:])  // I
+	r.round(&q, r.skey[16:]) // L
+	r.round(&q, r.skey[24:]) // zero
+	r.Ortho(q[:])
+	r.Store8xU32(dst0[:], dst1[:], &q)
+
+	memwipeU32(q[:])
 }
 
 func (r *roundB32) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
@@ -55,6 +77,8 @@ func (r *roundB32) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	r.round(&q, r.skey[0:]) // I
 	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
+
+	memwipeU32(q[:])
 }
 
 func (r *roundB32) round(q *[8]uint32, k []uint32) {
@@ -64,12 +88,112 @@ func (r *roundB32) round(q *[8]uint32, k []uint32) {
 	r.AddRoundKey(q, k)
 }
 
+func (r *roundB32) aezCorePass1(e *eState, in, out []byte, X *[blockSize]byte, sz int) {
+	var tmp0, tmp1, I [blockSize]byte
+
+	copy(I[:], e.I[1][:])
+	i := 1
+
+	// Process 4 * 16 bytes at a time in a loop.
+	for sz >= 4*blockSize {
+		r.aes4x2(&e.J[0], &I, &e.L[(i+0)%8], in[blockSize:], &tmp0,
+			&e.J[0], &I, &e.L[(i+1)%8], in[blockSize*3:], &tmp1) // E(1,i), E(1,i+1)
+		xorBytes1x16(in[:], tmp0[:], out[:])
+		xorBytes1x16(in[blockSize*2:], tmp1[:], out[blockSize*2:])
+
+		r.aes4x2(&zero, &e.I[0], &e.L[0], out[:], &tmp0,
+			&zero, &e.I[0], &e.L[0], out[blockSize*2:], &tmp1) // E(0,0), E(0,0)
+		xorBytes1x16(in[blockSize:], tmp0[:], out[blockSize:])
+		xorBytes1x16(in[blockSize*3:], tmp1[:], out[blockSize*3:])
+
+		xorBytes1x16(out[blockSize:], X[:], X[:])
+		xorBytes1x16(out[blockSize*3:], X[:], X[:])
+
+		sz -= 4 * blockSize
+		in, out = in[64:], out[64:]
+		if (i+1)%8 == 0 {
+			doubleBlock(&I)
+		}
+		i += 2
+	}
+	if sz > 0 {
+		r.AES4(&e.J[0], &I, &e.L[i%8], in[blockSize:], &tmp0) // E(1,i)
+		xorBytes1x16(in[:], tmp0[:], out[:])
+		r.AES4(&zero, &e.I[0], &e.L[0], out[:], &tmp0) // E(0,0)
+		xorBytes1x16(in[blockSize:], tmp0[:], out[blockSize:])
+		xorBytes1x16(out[blockSize:], X[:], X[:])
+	}
+
+	memwipe(tmp0[:])
+	memwipe(tmp1[:])
+	memwipe(I[:])
+}
+
+func (r *roundB32) aezCorePass2(e *eState, in, out []byte, Y, S *[blockSize]byte, sz int) {
+	var tmp0, tmp1, I [blockSize]byte
+
+	copy(I[:], e.I[1][:])
+	i := 1
+
+	// Process 4 * 16 bytes at a time in a loop.
+	for sz >= 4*blockSize {
+		r.aes4x2(&e.J[1], &I, &e.L[(i+0)%8], S[:], &tmp0,
+			&e.J[1], &I, &e.L[(i+1)%8], S[:], &tmp1) // E(2,i)
+		xorBytes1x16(out, tmp0[:], out[:])
+		xorBytes1x16(out[blockSize*2:], tmp1[:], out[blockSize*2:])
+		xorBytes1x16(out[blockSize:], tmp0[:], out[blockSize:])
+		xorBytes1x16(out[blockSize*3:], tmp1[:], out[blockSize*3:])
+		xorBytes1x16(out, Y[:], Y[:])
+		xorBytes1x16(out[blockSize*2:], Y[:], Y[:])
+
+		r.aes4x2(&zero, &e.I[0], &e.L[0], out[blockSize:], &tmp0,
+			&zero, &e.I[0], &e.L[0], out[blockSize*3:], &tmp1) // E(0,0)
+		xorBytes1x16(out, tmp0[:], out[:])
+		xorBytes1x16(out[blockSize*2:], tmp1[:], out[blockSize*2:])
+
+		r.aes4x2(&e.J[0], &I, &e.L[(i+0)%8], out[:], &tmp0,
+			&e.J[0], &I, &e.L[(i+1)%8], out[blockSize*2:], &tmp1) // E(1,i)
+		xorBytes1x16(out[blockSize:], tmp0[:], out[blockSize:])
+		xorBytes1x16(out[blockSize*3:], tmp1[:], out[blockSize*3:])
+
+		copy(tmp0[:], out[:])
+		copy(tmp1[:], out[blockSize*2:])
+		copy(out[:blockSize], out[blockSize:])
+		copy(out[blockSize*2:blockSize*3], out[blockSize*3:])
+		copy(out[blockSize:], tmp0[:])
+		copy(out[blockSize*3:], tmp1[:])
+
+		sz -= 4 * blockSize
+		in, out = in[64:], out[64:]
+		if (i+1)%8 == 0 {
+			doubleBlock(&I)
+		}
+		i += 2
+	}
+	if sz > 0 {
+		r.AES4(&e.J[1], &I, &e.L[i%8], S[:], &tmp0) // E(2,i)
+		xorBytes1x16(out, tmp0[:], out[:])
+		xorBytes1x16(out[blockSize:], tmp0[:], out[blockSize:])
+		xorBytes1x16(out, Y[:], Y[:])
+
+		r.AES4(&zero, &e.I[0], &e.L[0], out[blockSize:], &tmp0) // E(0,0)
+		xorBytes1x16(out, tmp0[:], out[:])
+
+		r.AES4(&e.J[0], &I, &e.L[i%8], out[:], &tmp0) // E(1,i)
+		xorBytes1x16(out[blockSize:], tmp0[:], out[blockSize:])
+
+		copy(tmp0[:], out[:])
+		copy(out[:blockSize], out[blockSize:])
+		copy(out[blockSize:], tmp0[:])
+	}
+
+	memwipe(tmp0[:])
+	memwipe(tmp1[:])
+	memwipe(I[:])
+}
+
 func memwipeU32(b []uint32) {
 	for i := range b {
 		b[i] = 0
 	}
 }
-
-// TODO:
-// * The bitsliced round function processes blocks in parallel, utilize this
-//   for much better performance.
