@@ -35,7 +35,7 @@ const (
 
 var (
 	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
-	newAes           aesImplCtor = newRoundVartime
+	newAes           aesImplCtor = newRoundBitsliced
 	zero                         = [blockSize]byte{}
 )
 
