@@ -22,11 +22,11 @@ func xorBytes4x16(a, b, c, d, dst []byte) {
 }
 
 func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
-	e.aezCorePass1BS(in, out, X, sz)
+	e.aezCorePass1Slow(in, out, X, sz)
 }
 
 func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
-	e.aezCorePass2BS(in, out, Y, S, sz)
+	e.aezCorePass2Slow(in, out, Y, S, sz)
 }
 
 func platformInit() {

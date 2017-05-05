@@ -1,4 +1,4 @@
-// round_bitsliced32.go - Constant time AES round function.
+// round_bitsliced32.go - 32 bit Constant time AES round function.
 //
 // To the extent possible under law, Yawning Angel has waived all copyright
 // and related or neighboring rights to aez, using the Creative

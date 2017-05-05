@@ -231,18 +231,29 @@ func (e *eState) aezPRF(delta *[blockSize]byte, tau int, result []byte) {
 	memwipe(buf[:])
 }
 
-func (e *eState) aezCorePass1BS(in, out []byte, X *[blockSize]byte, sz int) {
-	a := e.aes.(*roundB32)
-	a.aezCorePass1(e, in, out, X, sz)
+func (e *eState) aezCorePass1Slow(in, out []byte, X *[blockSize]byte, sz int) {
+	// NB: The hardware accelerated case is handled prior to this function.
+
+	// Use one of the portable bitsliced options if possible.
+	switch a := e.aes.(type) {
+	case *roundB32:
+		a.aezCorePass1(e, in, out, X, sz)
+	default:
+		e.aezCorePass1Ref(in, out, X)
+	}
 }
 
-func (e *eState) aezCorePass2BS(in, out []byte, Y, S *[blockSize]byte, sz int) {
-	a := e.aes.(*roundB32)
-	a.aezCorePass2(e, in, out, Y, S, sz)
-}
+func (e *eState) aezCorePass2Slow(in, out []byte, Y, S *[blockSize]byte, sz int) {
+	// NB: The hardware accelerated case is handled prior to this function.
 
-/* These are the un-bitsliced routines for posterity, or at least till I also
- * add the 64 bit bitsliced code.
+	// Use one of the portable bitsliced options if possible.
+	switch a := e.aes.(type) {
+	case *roundB32:
+		a.aezCorePass2(e, in, out, Y, S, sz)
+	default:
+		e.aezCorePass2Ref(in, out, Y, S)
+	}
+}
 
 func (e *eState) aezCorePass1Ref(in, out []byte, X *[blockSize]byte) {
 	var tmp, I [blockSize]byte
@@ -291,7 +302,6 @@ func (e *eState) aezCorePass2Ref(in, out []byte, Y, S *[blockSize]byte) {
 	memwipe(I[:])
 	memwipe(tmp[:])
 }
-*/
 
 func oneZeroPad(src []byte, sz int, dst *[blockSize]byte) {
 	memwipe(dst[:])
@@ -584,7 +594,7 @@ func memwipe(b []byte) {
 
 func xorBytes(a, b, dst []byte) {
 	if len(a) < len(dst) || len(b) < len(dst) {
-		panic("aez: xorBytes len")
+		panic("aez: xorBytes: len")
 	}
 	for i := 0; i < len(dst); i++ {
 		dst[i] = a[i] ^ b[i]
@@ -592,6 +602,8 @@ func xorBytes(a, b, dst []byte) {
 }
 
 func init() {
+	// XXX: Pick the correct bitsliced round function based on target.
+
 	// Attempt to detect hardware acceleration.
 	platformInit()
 }

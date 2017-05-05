@@ -80,7 +80,7 @@ var dblConsts = [32]byte{
 func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
 	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
 	if !useAESNI {
-		e.aezCorePass1BS(in, out, X, sz)
+		e.aezCorePass1Slow(in, out, X, sz)
 		return
 	}
 
@@ -92,7 +92,7 @@ func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
 func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
 	// Call the "slow" implementation if hardware/OS doesn't allow AES-NI.
 	if !useAESNI {
-		e.aezCorePass2BS(in, out, Y, S, sz)
+		e.aezCorePass2Slow(in, out, Y, S, sz)
 		return
 	}
 
