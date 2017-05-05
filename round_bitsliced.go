@@ -7,44 +7,18 @@
 
 package aez
 
-import (
-	"encoding/binary"
-	"git.schwanenlied.me/yawning/bsaes.git"
-)
-
-var zeroKey = [8]uint32{}
+import "git.schwanenlied.me/yawning/bsaes.git"
 
 type roundBitsliced struct {
 	bsaes.Impl32
-	skey [24]uint32 // I, J, L
+	skey [32]uint32 // I, J, L, 0
 }
 
 func newRoundBitsliced(extractedKey *[extractedKeySize]byte) aesImpl {
 	r := new(roundBitsliced)
-
-	// Convert the keys to a bitsliced representation.
-	var skey [24]uint32
-	var compSkey [12]uint32
-	for i := 0; i < 12; i++ {
-		tmp := binary.LittleEndian.Uint32(extractedKey[i<<2:])
-		skey[(i<<1)+0] = tmp
-		skey[(i<<1)+1] = tmp
-	}
 	for i := 0; i < 3; i++ {
-		r.Ortho(skey[i<<3:])
+		r.RkeyOrtho(r.skey[i*8:], extractedKey[i*16:])
 	}
-	for i, j := 0, 0; i < 12; i, j = i+1, j+2 {
-		x := (skey[j+0] & 0x55555555) | (skey[j+1] & 0xAAAAAAAA)
-		y := x
-
-		x &= 0x55555555
-		r.skey[j+0] = x | (x << 1)
-		y &= 0xAAAAAAAA
-		r.skey[j+1] = y | (y >> 1)
-	}
-
-	memwipeU32(skey[:])
-	memwipeU32(compSkey[:])
 
 	return r
 }
@@ -62,7 +36,7 @@ func (r *roundBitsliced) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockS
 	r.roundx2(&q, r.skey[8:])  // J
 	r.roundx2(&q, r.skey[0:])  // I
 	r.roundx2(&q, r.skey[16:]) // L
-	r.roundx2(&q, zeroKey[:])  // zero
+	r.roundx2(&q, r.skey[24:]) // zero
 	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
 }
