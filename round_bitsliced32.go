@@ -41,7 +41,9 @@ func (r *roundB32) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	memwipeU32(q[:])
 }
 
-func (r *roundB32) aes4x2(j0, i0, l0 *[blockSize]byte, src0 []byte, dst0 *[blockSize]byte, j1, i1, l1 *[blockSize]byte, src1 []byte, dst1 *[blockSize]byte) {
+func (r *roundB32) aes4x2(
+	j0, i0, l0 *[blockSize]byte, src0 []byte, dst0 *[blockSize]byte,
+	j1, i1, l1 *[blockSize]byte, src1 []byte, dst1 *[blockSize]byte) {
 	// XXX/performance: Fairly sure i, src, and dst are the only things
 	// that are ever different here so XORs can be pruned.
 
@@ -123,7 +125,7 @@ func (r *roundB32) aezCorePass1(e *eState, in, out []byte, X *[blockSize]byte, s
 	memwipe(I[:])
 }
 
-func (r *roundB32) aezCorePass2(e *eState, in, out []byte, Y, S *[blockSize]byte, sz int) {
+func (r *roundB32) aezCorePass2(e *eState, out []byte, Y, S *[blockSize]byte, sz int) {
 	var tmp0, tmp1, I [blockSize]byte
 
 	copy(I[:], e.I[1][:])
@@ -158,7 +160,7 @@ func (r *roundB32) aezCorePass2(e *eState, in, out []byte, Y, S *[blockSize]byte
 		copy(out[blockSize*3:], tmp1[:])
 
 		sz -= 4 * blockSize
-		in, out = in[64:], out[64:]
+		out = out[64:]
 		if (i+1)%8 == 0 {
 			doubleBlock(&I)
 		}

@@ -33,7 +33,7 @@ const (
 
 var (
 	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
-	newAes           aesImplCtor = newRoundB32
+	newAes           aesImplCtor = newRoundB64
 	zero                         = [blockSize]byte{}
 )
 
@@ -238,6 +238,8 @@ func (e *eState) aezCorePass1Slow(in, out []byte, X *[blockSize]byte, sz int) {
 	switch a := e.aes.(type) {
 	case *roundB32:
 		a.aezCorePass1(e, in, out, X, sz)
+	case *roundB64:
+		a.aezCorePass1(e, in, out, X, sz)
 	default:
 		e.aezCorePass1Ref(in, out, X)
 	}
@@ -249,7 +251,9 @@ func (e *eState) aezCorePass2Slow(in, out []byte, Y, S *[blockSize]byte, sz int)
 	// Use one of the portable bitsliced options if possible.
 	switch a := e.aes.(type) {
 	case *roundB32:
-		a.aezCorePass2(e, in, out, Y, S, sz)
+		a.aezCorePass2(e, out, Y, S, sz)
+	case *roundB64:
+		a.aezCorePass2(e, out, Y, S, sz)
 	default:
 		e.aezCorePass2Ref(in, out, Y, S)
 	}
