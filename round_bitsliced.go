@@ -7,10 +7,10 @@
 
 package aez
 
-import "git.schwanenlied.me/yawning/bsaes.git"
+import "git.schwanenlied.me/yawning/bsaes.git/ct32"
 
 type roundBitsliced struct {
-	bsaes.Impl32
+	ct32.Impl32
 	skey [32]uint32 // I, J, L, 0
 }
 
