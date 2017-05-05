@@ -32,12 +32,10 @@ func (r *roundB64) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 
 	r.Load4xU32(&q, dst[:])
-	r.Ortho(q[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
 
 	memwipeU64(q[:])
@@ -48,14 +46,12 @@ func (r *roundB64) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes1x16(src, l[:], dst[:])
 
 	r.Load4xU32(&q, dst[:])
-	r.Ortho(q[:])
 	for i := 0; i < 3; i++ {
 		r.round(&q, r.skey[0:])  // I
 		r.round(&q, r.skey[8:])  // J
 		r.round(&q, r.skey[16:]) // L
 	}
 	r.round(&q, r.skey[0:]) // I
-	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
 
 	memwipeU64(q[:])

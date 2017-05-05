@@ -32,12 +32,10 @@ func (r *roundB32) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 
 	r.Load4xU32(&q, dst[:])
-	r.Ortho(q[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
 
 	memwipeU32(q[:])
@@ -52,12 +50,10 @@ func (r *roundB32) aes4x2(j0, i0, l0 *[blockSize]byte, src0 []byte, dst0 *[block
 	xorBytes4x16(j1[:], i1[:], l1[:], src1, dst1[:])
 
 	r.Load8xU32(&q, dst0[:], dst1[:])
-	r.Ortho(q[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Ortho(q[:])
 	r.Store8xU32(dst0[:], dst1[:], &q)
 
 	memwipeU32(q[:])
@@ -68,14 +64,12 @@ func (r *roundB32) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	xorBytes1x16(src, l[:], dst[:])
 
 	r.Load4xU32(&q, dst[:])
-	r.Ortho(q[:])
 	for i := 0; i < 3; i++ {
 		r.round(&q, r.skey[0:])  // I
 		r.round(&q, r.skey[8:])  // J
 		r.round(&q, r.skey[16:]) // L
 	}
 	r.round(&q, r.skey[0:]) // I
-	r.Ortho(q[:])
 	r.Store4xU32(dst[:], &q)
 
 	memwipeU32(q[:])
