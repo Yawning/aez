@@ -28,3 +28,7 @@ func (e *eState) aezCorePass1(in, out []byte, X *[blockSize]byte, sz int) {
 func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
 	e.aezCorePass2Ref(in, out, Y, S)
 }
+
+func platformInit() {
+	// Nothing special to do here.
+}

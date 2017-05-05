@@ -572,3 +572,8 @@ func xorBytes(a, b, dst []byte) {
 		dst[i] = a[i] ^ b[i]
 	}
 }
+
+func init() {
+	// Attempt to detect hardware acceleration.
+	platformInit()
+}

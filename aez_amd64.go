@@ -130,7 +130,7 @@ func supportsAESNI() bool {
 	return regs[2]&aesniBit != 0
 }
 
-func init() {
+func platformInit() {
 	useAESNI = supportsAESNI()
 	if useAESNI {
 		newAes = newRoundAESNI
