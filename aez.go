@@ -13,8 +13,6 @@
 
 // Package aez implements the AEZ AEAD primitive.
 //
-// This implementation is NOT CONSTANT TIME ON ALL PLATFORMS.
-//
 // See: http://web.cs.ucdavis.edu/~rogaway/aez/
 package aez
 
