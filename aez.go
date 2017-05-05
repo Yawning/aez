@@ -88,7 +88,7 @@ func (e *eState) init(k []byte) {
 
 	// multBlock(0, &e.L, &e.L[0])                // L0 (all `0x00`s)
 	copy(e.L[1][:], extractedKey[32:48])          // L1
-	multBlock(2, &e.L[1], &e.L[2])                // L2=L1*2
+	multBlock(2, &e.L[1], &e.L[2])                // L2 = L1*2
 	xorBytes1x16(e.L[2][:], e.L[1][:], e.L[3][:]) // L3 = L2+L1
 	multBlock(2, &e.L[2], &e.L[4])                // L4 = L2*2
 	xorBytes1x16(e.L[4][:], e.L[1][:], e.L[5][:]) // L5 = L4+L1
@@ -349,7 +349,7 @@ func (e *eState) aezCore(delta *[blockSize]byte, in []byte, d uint, out []byte) 
 		e.aes.AES4(&zero, &e.I[1], &e.L[4], out[:blockSize], &tmp) // E(0,4)
 		xorBytes1x16(Y[:], tmp[:], Y[:])
 
-		out, in := out[blockSize:], in[blockSize:]
+		out, in = out[blockSize:], in[blockSize:]
 		fragBytes -= blockSize
 
 		e.aes.AES10(&e.L[5], S[:], &tmp)      // E(-1,5)
