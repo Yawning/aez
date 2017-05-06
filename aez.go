@@ -19,7 +19,7 @@ package aez
 import (
 	"crypto/subtle"
 	"encoding/binary"
-	"unsafe"
+	"math"
 
 	"github.com/minio/blake2b-simd"
 )
@@ -267,6 +267,7 @@ func (e *eState) aezCorePass1Ref(in, out []byte, X *[blockSize]byte) {
 	for i, inBytes := uint(1), len(in); inBytes >= 64; i, inBytes = i+1, inBytes-32 {
 		e.aes.AES4(&e.J[0], &I, &e.L[i%8], in[blockSize:blockSize*2], &tmp) // E(1,i)
 		xorBytes1x16(in[:], tmp[:], out[:blockSize])
+
 		e.aes.AES4(&zero, &e.I[0], &e.L[0], out[:blockSize], &tmp) // E(0,0)
 		xorBytes1x16(in[blockSize:], tmp[:], out[blockSize:blockSize*2])
 		xorBytes1x16(out[blockSize:], X[:], X[:])
@@ -290,13 +291,14 @@ func (e *eState) aezCorePass2Ref(in, out []byte, Y, S *[blockSize]byte) {
 		xorBytes1x16(out, tmp[:], out[:blockSize])
 		xorBytes1x16(out[blockSize:], tmp[:], out[blockSize:blockSize*2])
 		xorBytes1x16(out, Y[:], Y[:])
+
 		e.aes.AES4(&zero, &e.I[0], &e.L[0], out[blockSize:blockSize*2], &tmp) // E(0,0)
 		xorBytes1x16(out, tmp[:], out[:blockSize])
+
 		e.aes.AES4(&e.J[0], &I, &e.L[i%8], out[:blockSize], &tmp) // E(1,i)
 		xorBytes1x16(out[blockSize:], tmp[:], out[blockSize:blockSize*2])
-		copy(tmp[:], out[:blockSize])
-		copy(out[:blockSize], out[blockSize:])
-		copy(out[blockSize:], tmp[:])
+
+		swapBlocks(&tmp, out)
 
 		in, out = in[32:], out[32:]
 		if i%8 == 0 {
@@ -606,14 +608,23 @@ func xorBytes(a, b, dst []byte) {
 	}
 }
 
+func swapBlocks(tmp *[blockSize]byte, b []byte) {
+	copy(tmp[:], b[:])
+	copy(b[:blockSize], b[blockSize:])
+	copy(b[blockSize:], tmp[:])
+}
+
 func init() {
 	// Pick the correct bitsliced round function based on target.
-	var foo uintptr
-	switch int(unsafe.Sizeof(foo)) {
-	case 8:
-		newAes = newRoundB64
-	case 4:
+	//
+	// Fucking appengine doesn't have `unsafe`, so derive based off uintptr.
+	// It's retarded that this isn't a constant in runtime or something.
+	maxUintptr := uint64(^uintptr(0))
+	switch maxUintptr {
+	case math.MaxUint32:
 		newAes = newRoundB32
+	case math.MaxUint64:
+		newAes = newRoundB64
 	default:
 		panic("aez/init: unsupported pointer size")
 	}

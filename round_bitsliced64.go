@@ -191,18 +191,10 @@ func (r *roundB64) aezCorePass2(e *eState, out []byte, Y, S *[blockSize]byte, sz
 		xorBytes1x16(out[blockSize*5:], tmp2[:], out[blockSize*5:])
 		xorBytes1x16(out[blockSize*7:], tmp3[:], out[blockSize*7:])
 
-		copy(tmp0[:], out[:])
-		copy(tmp1[:], out[blockSize*2:])
-		copy(tmp2[:], out[blockSize*4:])
-		copy(tmp3[:], out[blockSize*6:])
-		copy(out[:blockSize], out[blockSize:])
-		copy(out[blockSize*2:blockSize*3], out[blockSize*3:])
-		copy(out[blockSize*4:blockSize*5], out[blockSize*5:])
-		copy(out[blockSize*6:blockSize*7], out[blockSize*7:])
-		copy(out[blockSize:], tmp0[:])
-		copy(out[blockSize*3:], tmp1[:])
-		copy(out[blockSize*5:], tmp2[:])
-		copy(out[blockSize*7:], tmp3[:])
+		swapBlocks(&tmp0, out)
+		swapBlocks(&tmp0, out[blockSize*2:])
+		swapBlocks(&tmp0, out[blockSize*4:])
+		swapBlocks(&tmp0, out[blockSize*6:])
 
 		sz -= 8 * blockSize
 		out = out[128:]
@@ -226,9 +218,7 @@ func (r *roundB64) aezCorePass2(e *eState, out []byte, Y, S *[blockSize]byte, sz
 		r.AES4(&e.J[0], &I, &e.L[i%8], out[:], &tmp0) // E(1,i)
 		xorBytes1x16(out[blockSize:], tmp0[:], out[blockSize:])
 
-		copy(tmp0[:], out[:])
-		copy(out[:blockSize], out[blockSize:])
-		copy(out[blockSize:], tmp0[:])
+		swapBlocks(&tmp0, out)
 
 		sz -= 2 * blockSize
 		out = out[32:]
