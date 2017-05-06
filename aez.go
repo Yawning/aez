@@ -19,6 +19,7 @@ package aez
 import (
 	"crypto/subtle"
 	"encoding/binary"
+	"unsafe"
 
 	"github.com/minio/blake2b-simd"
 )
@@ -33,7 +34,7 @@ const (
 
 var (
 	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
-	newAes           aesImplCtor = newRoundB64
+	newAes           aesImplCtor = nil
 	zero                         = [blockSize]byte{}
 )
 
@@ -606,7 +607,16 @@ func xorBytes(a, b, dst []byte) {
 }
 
 func init() {
-	// XXX: Pick the correct bitsliced round function based on target.
+	// Pick the correct bitsliced round function based on target.
+	var foo uintptr
+	switch int(unsafe.Sizeof(foo)) {
+	case 8:
+		newAes = newRoundB64
+	case 4:
+		newAes = newRoundB32
+	default:
+		panic("aez/init: unsupported pointer size")
+	}
 
 	// Attempt to detect hardware acceleration.
 	platformInit()
