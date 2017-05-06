@@ -10,14 +10,13 @@ package aez
 import "git.schwanenlied.me/yawning/bsaes.git/ct32"
 
 type roundB32 struct {
-	ct32.Impl32
 	skey [32]uint32 // I, J, L, 0
 }
 
 func newRoundB32(extractedKey *[extractedKeySize]byte) aesImpl {
 	r := new(roundB32)
 	for i := 0; i < 3; i++ {
-		r.RkeyOrtho(r.skey[i*8:], extractedKey[i*16:])
+		ct32.RkeyOrtho(r.skey[i*8:], extractedKey[i*16:])
 	}
 
 	return r
@@ -31,12 +30,12 @@ func (r *roundB32) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	var q [8]uint32
 	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 
-	r.Load4xU32(&q, dst[:])
+	ct32.Load4xU32(&q, dst[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Store4xU32(dst[:], &q)
+	ct32.Store4xU32(dst[:], &q)
 
 	memwipeU32(q[:])
 }
@@ -51,12 +50,12 @@ func (r *roundB32) aes4x2(
 	xorBytes4x16(j0[:], i0[:], l0[:], src0, dst0[:])
 	xorBytes4x16(j1[:], i1[:], l1[:], src1, dst1[:])
 
-	r.Load8xU32(&q, dst0[:], dst1[:])
+	ct32.Load8xU32(&q, dst0[:], dst1[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Store8xU32(dst0[:], dst1[:], &q)
+	ct32.Store8xU32(dst0[:], dst1[:], &q)
 
 	memwipeU32(q[:])
 }
@@ -65,23 +64,23 @@ func (r *roundB32) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	var q [8]uint32
 	xorBytes1x16(src, l[:], dst[:])
 
-	r.Load4xU32(&q, dst[:])
+	ct32.Load4xU32(&q, dst[:])
 	for i := 0; i < 3; i++ {
 		r.round(&q, r.skey[0:])  // I
 		r.round(&q, r.skey[8:])  // J
 		r.round(&q, r.skey[16:]) // L
 	}
 	r.round(&q, r.skey[0:]) // I
-	r.Store4xU32(dst[:], &q)
+	ct32.Store4xU32(dst[:], &q)
 
 	memwipeU32(q[:])
 }
 
 func (r *roundB32) round(q *[8]uint32, k []uint32) {
-	r.Sbox(q)
-	r.ShiftRows(q)
-	r.MixColumns(q)
-	r.AddRoundKey(q, k)
+	ct32.Sbox(q)
+	ct32.ShiftRows(q)
+	ct32.MixColumns(q)
+	ct32.AddRoundKey(q, k)
 }
 
 func (r *roundB32) aezCorePass1(e *eState, in, out []byte, X *[blockSize]byte, sz int) {

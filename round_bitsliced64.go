@@ -10,14 +10,13 @@ package aez
 import "git.schwanenlied.me/yawning/bsaes.git/ct64"
 
 type roundB64 struct {
-	ct64.Impl64
 	skey [32]uint64 // I, J, L, 0
 }
 
 func newRoundB64(extractedKey *[extractedKeySize]byte) aesImpl {
 	r := new(roundB64)
 	for i := 0; i < 3; i++ {
-		r.RkeyOrtho(r.skey[i*8:], extractedKey[i*16:])
+		ct64.RkeyOrtho(r.skey[i*8:], extractedKey[i*16:])
 	}
 
 	return r
@@ -31,12 +30,12 @@ func (r *roundB64) AES4(j, i, l *[blockSize]byte, src []byte, dst *[blockSize]by
 	var q [8]uint64
 	xorBytes4x16(j[:], i[:], l[:], src, dst[:])
 
-	r.Load4xU32(&q, dst[:])
+	ct64.Load4xU32(&q, dst[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Store4xU32(dst[:], &q)
+	ct64.Store4xU32(dst[:], &q)
 
 	memwipeU64(q[:])
 }
@@ -52,12 +51,12 @@ func (r *roundB64) aes4x4(
 	xorBytes4x16(j2[:], i2[:], l2[:], src2, dst2[:])
 	xorBytes4x16(j3[:], i3[:], l3[:], src3, dst3[:])
 
-	r.Load16xU32(&q, dst0[:], dst1[:], dst2[:], dst3[:])
+	ct64.Load16xU32(&q, dst0[:], dst1[:], dst2[:], dst3[:])
 	r.round(&q, r.skey[8:])  // J
 	r.round(&q, r.skey[0:])  // I
 	r.round(&q, r.skey[16:]) // L
 	r.round(&q, r.skey[24:]) // zero
-	r.Store16xU32(dst0[:], dst1[:], dst2[:], dst3[:], &q)
+	ct64.Store16xU32(dst0[:], dst1[:], dst2[:], dst3[:], &q)
 
 	memwipeU64(q[:])
 }
@@ -66,23 +65,23 @@ func (r *roundB64) AES10(l *[blockSize]byte, src []byte, dst *[blockSize]byte) {
 	var q [8]uint64
 	xorBytes1x16(src, l[:], dst[:])
 
-	r.Load4xU32(&q, dst[:])
+	ct64.Load4xU32(&q, dst[:])
 	for i := 0; i < 3; i++ {
 		r.round(&q, r.skey[0:])  // I
 		r.round(&q, r.skey[8:])  // J
 		r.round(&q, r.skey[16:]) // L
 	}
 	r.round(&q, r.skey[0:]) // I
-	r.Store4xU32(dst[:], &q)
+	ct64.Store4xU32(dst[:], &q)
 
 	memwipeU64(q[:])
 }
 
 func (r *roundB64) round(q *[8]uint64, k []uint64) {
-	r.Sbox(q)
-	r.ShiftRows(q)
-	r.MixColumns(q)
-	r.AddRoundKey(q, k)
+	ct64.Sbox(q)
+	ct64.ShiftRows(q)
+	ct64.MixColumns(q)
+	ct64.AddRoundKey(q, k)
 }
 
 func (r *roundB64) aezCorePass1(e *eState, in, out []byte, X *[blockSize]byte, sz int) {
