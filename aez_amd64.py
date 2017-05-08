@@ -692,6 +692,7 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     reg_tmp = GeneralPurposeRegister64()
     reg_bytes = GeneralPurposeRegister64()
     reg_idx = GeneralPurposeRegister64()
+    reg_sp_save = GeneralPurposeRegister64()
 
     LOAD.ARGUMENT(reg_dst, dst)  # dst pointer
     LOAD.ARGUMENT(reg_y, y)
@@ -736,6 +737,30 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     MOVDQU(xmm_s, [reg_s])
     PXOR(xmm_s, [reg_j+16]) # S ^= J[1] (Once per call, in theory)
 
+    # Save the stack pointer, align stack to 32 bytes, and allocate
+    # 256 bytes of scratch space.
+    MOV(reg_sp_save, registers.rsp)
+    AND(registers.rsp, 0xffffffffffffffe0)
+    SUB(registers.rsp, 256)
+
+    # Name strategic offsets.
+    mem_dst_l0 = [registers.rsp]
+    mem_dst_r0 = [registers.rsp+16]
+    mem_dst_l1 = [registers.rsp+32]
+    mem_dst_r1 = [registers.rsp+48]
+    mem_dst_l2 = [registers.rsp+64]
+    mem_dst_r2 = [registers.rsp+80]
+    mem_dst_l3 = [registers.rsp+96]
+    mem_dst_r3 = [registers.rsp+112]
+    mem_dst_l4 = [registers.rsp+128]
+    mem_dst_r4 = [registers.rsp+144]
+    mem_dst_l5 = [registers.rsp+160]
+    mem_dst_r5 = [registers.rsp+176]
+    mem_dst_l6 = [registers.rsp+192]
+    mem_dst_r6 = [registers.rsp+208]
+    mem_dst_l7 = [registers.rsp+224]
+    mem_dst_r7 = [registers.rsp+240]
+
     #
     # Process 16 * 16 bytes at a time in a loop.
     #
@@ -778,8 +803,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         PXOR(xmm_tmp1, xmm_o1)
         PXOR(xmm_y, xmm_tmp0)
         PXOR(xmm_y, xmm_tmp1)
-        MOVDQU([reg_dst], xmm_tmp0)
-        MOVDQU([reg_dst+32], xmm_tmp1)
+        MOVDQA(mem_dst_l0, xmm_tmp0)
+        MOVDQA(mem_dst_l1, xmm_tmp1)
 
         MOVDQU(xmm_tmp0, [reg_dst+64])
         MOVDQU(xmm_tmp1, [reg_dst+96])
@@ -787,8 +812,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         PXOR(xmm_tmp1, xmm_o3)
         PXOR(xmm_y, xmm_tmp0)
         PXOR(xmm_y, xmm_tmp1)
-        MOVDQU([reg_dst+64], xmm_tmp0)
-        MOVDQU([reg_dst+96], xmm_tmp1)
+        MOVDQA(mem_dst_l2, xmm_tmp0)
+        MOVDQA(mem_dst_l3, xmm_tmp1)
 
         MOVDQU(xmm_tmp0, [reg_dst+128])
         MOVDQU(xmm_tmp1, [reg_dst+160])
@@ -796,8 +821,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         PXOR(xmm_tmp1, xmm_o5)
         PXOR(xmm_y, xmm_tmp0)
         PXOR(xmm_y, xmm_tmp1)
-        MOVDQU([reg_dst+128], xmm_tmp0)
-        MOVDQU([reg_dst+160], xmm_tmp1)
+        MOVDQA(mem_dst_l4, xmm_tmp0)
+        MOVDQA(mem_dst_l5, xmm_tmp1)
 
         MOVDQU(xmm_tmp0, [reg_dst+192])
         MOVDQU(xmm_tmp1, [reg_dst+224])
@@ -805,8 +830,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         PXOR(xmm_tmp1, xmm_o7)
         PXOR(xmm_y, xmm_tmp0)
         PXOR(xmm_y, xmm_tmp1)
-        MOVDQU([reg_dst+192], xmm_tmp0)
-        MOVDQU([reg_dst+224], xmm_tmp1)
+        MOVDQA(mem_dst_l6, xmm_tmp0)
+        MOVDQA(mem_dst_l7, xmm_tmp1)
 
         # o0 ^= dst_r0, ... o7 ^= dst_r7
         # dst_r0 = o0, ... dst_r7 = o7
@@ -814,29 +839,29 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         MOVDQU(xmm_tmp1, [reg_dst+48])
         PXOR(xmm_o0, xmm_tmp0)
         PXOR(xmm_o1, xmm_tmp1)
-        MOVDQU([reg_dst+16], xmm_o0)
-        MOVDQU([reg_dst+48], xmm_o1)
+        MOVDQA(mem_dst_r0, xmm_o0)
+        MOVDQA(mem_dst_r1, xmm_o1)
 
         MOVDQU(xmm_tmp0, [reg_dst+80])
         MOVDQU(xmm_tmp1, [reg_dst+112])
         PXOR(xmm_o2, xmm_tmp0)
         PXOR(xmm_o3, xmm_tmp1)
-        MOVDQU([reg_dst+80], xmm_o2)
-        MOVDQU([reg_dst+112], xmm_o3)
+        MOVDQA(mem_dst_r2, xmm_o2)
+        MOVDQA(mem_dst_r3, xmm_o3)
 
         MOVDQU(xmm_tmp0, [reg_dst+144])
         MOVDQU(xmm_tmp1, [reg_dst+176])
         PXOR(xmm_o4, xmm_tmp0)
         PXOR(xmm_o5, xmm_tmp1)
-        MOVDQU([reg_dst+144], xmm_o4)
-        MOVDQU([reg_dst+176], xmm_o5)
+        MOVDQA(mem_dst_r4, xmm_o4)
+        MOVDQA(mem_dst_r5, xmm_o5)
 
         MOVDQU(xmm_tmp0, [reg_dst+208])
         MOVDQU(xmm_tmp1, [reg_dst+240])
         PXOR(xmm_o6, xmm_tmp0)
         PXOR(xmm_o7, xmm_tmp1)
-        MOVDQU([reg_dst+208], xmm_o6)
-        MOVDQU([reg_dst+240], xmm_o7)
+        MOVDQA(mem_dst_r6, xmm_o6)
+        MOVDQA(mem_dst_r7, xmm_o7)
 
         # o0 = aes4(o0 ^ I[0]) // E(0,0)
         #  ...
@@ -853,33 +878,25 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
 
         # o0 ^= dst_l0, ... o7 ^= dst_l7
         # dst_l0 = o0, ... dst_l7 = o7
-        MOVDQU(xmm_tmp0, [reg_dst])
-        MOVDQU(xmm_tmp1, [reg_dst+32])
-        PXOR(xmm_o0, xmm_tmp0)
-        PXOR(xmm_o1, xmm_tmp1)
-        MOVDQU([reg_dst], xmm_o0)
-        MOVDQU([reg_dst+32], xmm_o1)
-
-        MOVDQU(xmm_tmp0, [reg_dst+64])
-        MOVDQU(xmm_tmp1, [reg_dst+96])
-        PXOR(xmm_o2, xmm_tmp0)
-        PXOR(xmm_o3, xmm_tmp1)
-        MOVDQU([reg_dst+64], xmm_o2)
-        MOVDQU([reg_dst+96], xmm_o3)
-
-        MOVDQU(xmm_tmp0, [reg_dst+128])
-        MOVDQU(xmm_tmp1, [reg_dst+160])
-        PXOR(xmm_o4, xmm_tmp0)
-        PXOR(xmm_o5, xmm_tmp1)
-        MOVDQU([reg_dst+128], xmm_o4)
-        MOVDQU([reg_dst+160], xmm_o5)
-
-        MOVDQU(xmm_tmp0, [reg_dst+192])
-        MOVDQU(xmm_tmp1, [reg_dst+224])
-        PXOR(xmm_o6, xmm_tmp0)
-        PXOR(xmm_o7, xmm_tmp1)
-        MOVDQU([reg_dst+192], xmm_o6)
-        MOVDQU([reg_dst+224], xmm_o7)
+        #
+        # nb: Stored into the right hand blocks of dst[], because we are
+        # done with the left hand side.
+        PXOR(xmm_o0, mem_dst_l0)
+        PXOR(xmm_o1, mem_dst_l1)
+        PXOR(xmm_o2, mem_dst_l2)
+        PXOR(xmm_o3, mem_dst_l3)
+        PXOR(xmm_o4, mem_dst_l4)
+        PXOR(xmm_o5, mem_dst_l5)
+        PXOR(xmm_o6, mem_dst_l6)
+        PXOR(xmm_o7, mem_dst_l7)
+        MOVDQU([reg_dst+16], xmm_o0)
+        MOVDQU([reg_dst+48], xmm_o1)
+        MOVDQU([reg_dst+80], xmm_o2)
+        MOVDQU([reg_dst+112], xmm_o3)
+        MOVDQU([reg_dst+144], xmm_o4)
+        MOVDQU([reg_dst+176], xmm_o5)
+        MOVDQU([reg_dst+208], xmm_o6)
+        MOVDQU([reg_dst+240], xmm_o7)
 
         # o0 = aes4(o0 ^ J[0] ^ I ^ L[1]) // E(1,1)
         # o1 = aes4(o0 ^ J[0] ^ I ^ L[2]) // E(1,2)
@@ -908,60 +925,29 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
 
         # dst_r0 ^= o0, ... dst_r7 ^= o7
         # dst_l0, dst_r0 = dst_r0, dst_l0 ... dst_l7, dst_r7 = dst_r7, dst_l7
-        MOVDQU(xmm_tmp0, [reg_dst])
-        MOVDQU(xmm_tmp1, [reg_dst+16])
-        PXOR(xmm_tmp1, xmm_o0)
-        MOVDQU([reg_dst], xmm_tmp1)
-        MOVDQU([reg_dst+16], xmm_tmp0)
-
-        xmm_tmp2 = xmm_zero
-        xmm_tmp3 = xmm_o0
-
-        MOVDQU(xmm_tmp0, [reg_dst+32])
-        MOVDQU(xmm_tmp1, [reg_dst+48])
-        MOVDQU(xmm_tmp2, [reg_dst+64])
-        MOVDQU(xmm_tmp3, [reg_dst+80])
-        PXOR(xmm_tmp1, xmm_o1)
-        PXOR(xmm_tmp3, xmm_o2)
-        MOVDQU([reg_dst+32], xmm_tmp1)
-        MOVDQU([reg_dst+48], xmm_tmp0)
-        MOVDQU([reg_dst+64], xmm_tmp3)
-        MOVDQU([reg_dst+80], xmm_tmp2)
-
-        xmm_tmp4 = xmm_o1
-        xmm_tmp5 = xmm_o2
-
-        MOVDQU(xmm_tmp0, [reg_dst+96])
-        MOVDQU(xmm_tmp1, [reg_dst+112])
-        MOVDQU(xmm_tmp2, [reg_dst+128])
-        MOVDQU(xmm_tmp3, [reg_dst+144])
-        MOVDQU(xmm_tmp4, [reg_dst+160])
-        MOVDQU(xmm_tmp5, [reg_dst+176])
-        PXOR(xmm_tmp1, xmm_o3)
-        PXOR(xmm_tmp3, xmm_o4)
-        PXOR(xmm_tmp5, xmm_o5)
-        MOVDQU([reg_dst+96], xmm_tmp1)
-        MOVDQU([reg_dst+112], xmm_tmp0)
-        MOVDQU([reg_dst+128], xmm_tmp3)
-        MOVDQU([reg_dst+144], xmm_tmp2)
-        MOVDQU([reg_dst+160], xmm_tmp5)
-        MOVDQU([reg_dst+176], xmm_tmp4)
-
-        MOVDQU(xmm_tmp0, [reg_dst+192])
-        MOVDQU(xmm_tmp1, [reg_dst+208])
-        MOVDQU(xmm_tmp2, [reg_dst+224])
-        MOVDQU(xmm_tmp3, [reg_dst+240])
-        PXOR(xmm_tmp1, xmm_o6)
-        PXOR(xmm_tmp3, xmm_o7)
-        MOVDQU([reg_dst+192], xmm_tmp1)
-        MOVDQU([reg_dst+208], xmm_tmp0)
-        MOVDQU([reg_dst+224], xmm_tmp3)
-        MOVDQU([reg_dst+240], xmm_tmp2)
+        #
+        # nb: dst_l0 ... dst_l7 already written after the previous aesenc4x8
+        # call.
+        PXOR(xmm_o0, mem_dst_r0)
+        PXOR(xmm_o1, mem_dst_r1)
+        PXOR(xmm_o2, mem_dst_r2)
+        PXOR(xmm_o3, mem_dst_r3)
+        PXOR(xmm_o4, mem_dst_r4)
+        PXOR(xmm_o5, mem_dst_r5)
+        PXOR(xmm_o6, mem_dst_r6)
+        PXOR(xmm_o7, mem_dst_r7)
+        MOVDQU([reg_dst], xmm_o0)
+        MOVDQU([reg_dst+32], xmm_o1)
+        MOVDQU([reg_dst+64], xmm_o2)
+        MOVDQU([reg_dst+96], xmm_o3)
+        MOVDQU([reg_dst+128], xmm_o4)
+        MOVDQU([reg_dst+160], xmm_o5)
+        MOVDQU([reg_dst+192], xmm_o6)
+        MOVDQU([reg_dst+224], xmm_o7)
 
         # doubleBlock(I)
         doubleBlock(xmm_iDbl, xmm_tmp0, xmm_tmp1, reg_tmp)
 
-        PXOR(xmm_zero, xmm_zero) # Re-zero since it was used as scratch space.
         MOVDQU(xmm_s, [reg_s])
         PXOR(xmm_s, [reg_j+16])  # Re-derive since it was used as scratch space.
 
@@ -969,6 +955,20 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
         ADD(reg_dst, 256)
         SUB(reg_bytes, 256)
         JAE(vector_loop256.begin)
+
+        # Purge the scratch space that we are done with.
+        MOVDQA(mem_dst_r0, xmm_zero)
+        MOVDQA(mem_dst_r1, xmm_zero)
+        MOVDQA(mem_dst_r2, xmm_zero)
+        MOVDQA(mem_dst_r3, xmm_zero)
+        MOVDQA(mem_dst_l4, xmm_zero)
+        MOVDQA(mem_dst_r4, xmm_zero)
+        MOVDQA(mem_dst_l5, xmm_zero)
+        MOVDQA(mem_dst_r5, xmm_zero)
+        MOVDQA(mem_dst_l6, xmm_zero)
+        MOVDQA(mem_dst_r6, xmm_zero)
+        MOVDQA(mem_dst_l7, xmm_zero)
+        MOVDQA(mem_dst_r7, xmm_zero)
     ADD(reg_bytes, 256)
     process_64bytes = Label()
     SUB(reg_bytes, 128)
@@ -1020,10 +1020,10 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     PXOR(xmm_y, xmm_dst_l3)
 
     # Store the altered left halfs.
-    MOVDQU([reg_dst], xmm_dst_l0)
-    MOVDQU([reg_dst+32], xmm_dst_l1)
-    MOVDQU([reg_dst+64], xmm_dst_l2)
-    MOVDQU([reg_dst+96], xmm_dst_l3)
+    MOVDQA(mem_dst_l0, xmm_dst_l0)
+    MOVDQA(mem_dst_l1, xmm_dst_l1)
+    MOVDQA(mem_dst_l2, xmm_dst_l2)
+    MOVDQA(mem_dst_l3, xmm_dst_l3)
 
     # Load the right halfs of dst into registers.
     xmm_dst_r2 = xmm_dst_l0
@@ -1043,6 +1043,10 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     MOVDQU([reg_dst+48], xmm_o1)
     MOVDQU([reg_dst+80], xmm_o2)
     MOVDQU([reg_dst+112], xmm_o3)
+    MOVDQA(xmm_dst_r0, xmm_o0)
+    MOVDQA(xmm_dst_r1, xmm_o1)
+    MOVDQA(xmm_dst_r2, xmm_o2)
+    MOVDQA(xmm_dst_r3, xmm_o3)
 
     # o0 = aes4(o0 ^ I[0]) // E(0,0)
     #  ...
@@ -1053,22 +1057,19 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     PXOR(xmm_o3, xmm_i)
     aesenc4x4(xmm_o0, xmm_o1, xmm_o2, xmm_o3, xmm_j, xmm_i, xmm_l, xmm_zero)
 
-    # Load the left halfs of the dsts into registers.
-    MOVDQU(xmm_dst_l0, [reg_dst])    # dst_l0 = dst[:]
-    MOVDQU(xmm_dst_l1, [reg_dst+32]) # dst_l1 = dst[32:]
-    MOVDQU(xmm_dst_l2, [reg_dst+64]) # dst_l2 = dst[64:]
-    MOVDQU(xmm_dst_l3, [reg_dst+96]) # dst_l3 = dst[96:]
-
     # o0 ^= dst_l0, ... o3 ^= dst_l3
     # dst_l0 = o0, ... dst_l3 = o3
-    PXOR(xmm_o0, xmm_dst_l0)
-    PXOR(xmm_o1, xmm_dst_l1)
-    PXOR(xmm_o2, xmm_dst_l2)
-    PXOR(xmm_o3, xmm_dst_l3)
-    MOVDQA(xmm_dst_l0, xmm_o0)
-    MOVDQA(xmm_dst_l1, xmm_o1)
-    MOVDQA(xmm_dst_l2, xmm_o2)
-    MOVDQA(xmm_dst_l3, xmm_o3)
+    #
+    # nb: Stored into the right hand blocks of dst[], because we are
+    # done with the left hand side.
+    PXOR(xmm_o0, mem_dst_l0)
+    PXOR(xmm_o1, mem_dst_l1)
+    PXOR(xmm_o2, mem_dst_l2)
+    PXOR(xmm_o3, mem_dst_l3)
+    MOVDQU([reg_dst+16], xmm_o0)
+    MOVDQU([reg_dst+48], xmm_o1)
+    MOVDQU([reg_dst+80], xmm_o2)
+    MOVDQU([reg_dst+112], xmm_o3)
 
     # o0 = aes4(o0 ^ J[0] ^ I ^ L[1]) // E(1,1)
     # o1 = aes4(o1 ^ J[0] ^ I ^ L[2]) // E(1,2)
@@ -1088,35 +1089,19 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
     PXOR(xmm_o3, [reg_l+64]) # o3 ^= L[4]
     aesenc4x4(xmm_o0, xmm_o1, xmm_o2, xmm_o3, xmm_j, xmm_i, xmm_l, xmm_zero)
 
-    # Load r0/r1 into scratch registers.
-    MOVDQU(xmm_tmp0, [reg_dst+16]) # r0
-    MOVDQU(xmm_zero, [reg_dst+48]) # r1
-
-    # dst_r0 ^= o0, dst_r1 ^= o1
-    PXOR(xmm_tmp0, xmm_o0)
-    PXOR(xmm_zero, xmm_o1)
-
-    # dst_l0, dst_r0 = dst_r0, dst_l0 .. dst_l1, dst_r1 = dst_r1, dst_l1
-    MOVDQU([reg_dst], xmm_tmp0)
-    MOVDQU([reg_dst+16], xmm_dst_l0)
-    MOVDQU([reg_dst+32], xmm_zero)
-    MOVDQU([reg_dst+48], xmm_dst_l1)
-
-    # Load r2/r3 into scratch registers.
-    MOVDQU(xmm_tmp0, [reg_dst+80])  # r2
-    MOVDQU(xmm_zero, [reg_dst+112]) # r3
-
-    # dst_r2 ^= o2, dst_r3 ^= o3
-    PXOR(xmm_tmp0, xmm_o2)
-    PXOR(xmm_zero, xmm_o3)
-
-    # dst_l2, dst_r2 = dst_r2, dst_l2 .. dst_l3, dst_r3 = dst_r3, dst_l3
-    MOVDQU([reg_dst+64], xmm_tmp0)
-    MOVDQU([reg_dst+80], xmm_dst_l2)
-    MOVDQU([reg_dst+96], xmm_zero)
-    MOVDQU([reg_dst+112], xmm_dst_l3)
-
-    PXOR(xmm_zero, xmm_zero) # Re-zero since it was used as scratch space.
+    # dst_r0 ^= o0, ... dst_r3 ^= o3
+    # dst_l0, dst_r0 = dst_r0, dst_l0 ... dst_l3, dst_r3 = dst_r, dst_l3
+    #
+    # nb: dst_l0 ... dst_l7 already written after the previous aesenc4x4
+    # call.
+    PXOR(xmm_o0, xmm_dst_r0)
+    PXOR(xmm_o1, xmm_dst_r1)
+    PXOR(xmm_o2, xmm_dst_r2)
+    PXOR(xmm_o3, xmm_dst_r3)
+    MOVDQU([reg_dst], xmm_o0)
+    MOVDQU([reg_dst+32], xmm_o1)
+    MOVDQU([reg_dst+64], xmm_o2)
+    MOVDQU([reg_dst+96], xmm_o3)
 
     # Update book keeping.
     ADD(reg_dst, 128)
@@ -1131,6 +1116,8 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
 
     #
     # Process 4 * 16 bytes.
+    #
+    # (Scratch space unused past this point, working set fits into registers.)
     #
 
     reg_l_offset = reg_tmp
@@ -1268,5 +1255,15 @@ with Function("aezCorePass2AMD64AESNI", (dst, y, s, j, i, l, k, consts, sz), tar
 
     # Write back Y.
     MOVDQU([reg_y], xmm_y)
+
+    # Paranoia, cleanse the scratch space.  Most of it is purged
+    # at the end of the 16x16 loop, but the 8x16 case uses these 4.
+    MOVDQA(mem_dst_l0, xmm_zero)
+    MOVDQA(mem_dst_l1, xmm_zero)
+    MOVDQA(mem_dst_l2, xmm_zero)
+    MOVDQA(mem_dst_l3, xmm_zero)
+
+    # Restore the stack pointer.
+    MOV(registers.rsp, reg_sp_save)
 
     RETURN()
