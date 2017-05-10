@@ -12,6 +12,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"testing"
 )
 
@@ -1443,46 +1444,16 @@ func doBenchEncrypt(b *testing.B, n int) {
 	benchOutput = src
 }
 
-func BenchmarkEncrypt_1(b *testing.B) {
-	doBenchEncrypt(b, 1)
-}
+func BenchmarkEncrypt(b *testing.B) {
+	sizes := []int{1, 32, 512, 1024, 2048, 16384, 32768, 65536, 1024768}
+	if testing.Short() {
+		sizes = []int{1, 32, 512, 1024, 16384, 65536, 1024768}
+	}
 
-func BenchmarkEncrypt_32(b *testing.B) {
-	doBenchEncrypt(b, 32)
-}
+	b.SetParallelism(1) // AES-NI is a per-physical core thing.
 
-func BenchmarkEncrypt_512(b *testing.B) {
-	doBenchEncrypt(b, 512)
-}
-
-func BenchmarkEncrypt_1024(b *testing.B) {
-	doBenchEncrypt(b, 1024)
-}
-
-func BenchmarkEncrypt_2048(b *testing.B) {
-	doBenchEncrypt(b, 2048)
-}
-
-func BenchmarkEncrypt_4096(b *testing.B) {
-	doBenchEncrypt(b, 4096)
-}
-
-func BenchmarkEncrypt_8192(b *testing.B) {
-	doBenchEncrypt(b, 8192)
-}
-
-func BenchmarkEncrypt_16394(b *testing.B) {
-	doBenchEncrypt(b, 16384)
-}
-
-func BenchmarkEncrypt_32768(b *testing.B) {
-	doBenchEncrypt(b, 32768)
-}
-
-func BenchmarkEncrypt_65536(b *testing.B) {
-	doBenchEncrypt(b, 65536)
-}
-
-func BenchmarkEncrypt_1024768(b *testing.B) {
-	doBenchEncrypt(b, 1024768)
+	for _, sz := range sizes {
+		n := fmt.Sprintf("%d", sz)
+		b.Run(n, func(b *testing.B) { doBenchEncrypt(b, sz) })
+	}
 }
