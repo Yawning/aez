@@ -116,7 +116,7 @@ func supportsAESNI() bool {
 	}
 
 	// Check for AES-NI support.
-	// CPUID.(EAX=01H, ECX=0H):ECX.AESNI[bit 25] = 1
+	// CPUID.(EAX=01H, ECX=0H):ECX.AESNI[bit 25]==1
 	return regs[2]&aesniBit != 0
 }
 

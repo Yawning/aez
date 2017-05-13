@@ -6,7 +6,7 @@
 TEXT ·cpuidAMD64(SB),4,$0-8
 	MOVQ cpuidParams+0(FP), R15
 	MOVL 0(R15), AX
-	MOVL 4(R15), CX
+	MOVL 8(R15), CX
 	CPUID
 	MOVL AX, 0(R15)
 	MOVL BX, 4(R15)

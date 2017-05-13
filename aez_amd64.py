@@ -21,7 +21,7 @@ with Function("cpuidAMD64", (cpuidParams,)):
     LOAD.ARGUMENT(reg_params, cpuidParams)
 
     MOV(registers.eax, [reg_params])
-    MOV(registers.ecx, [reg_params+4])
+    MOV(registers.ecx, [reg_params+8])
 
     CPUID()
 
