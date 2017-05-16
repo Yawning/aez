@@ -102,21 +102,13 @@ func (e *eState) aezCorePass2(in, out []byte, Y, S *[blockSize]byte, sz int) {
 }
 
 func supportsAESNI() bool {
-	const (
-		aesniBit   = 1 << 25
-		osXsaveBit = 1 << 27
-	)
-
-	// Check to see if the OS knows how to save/restore XMM state.
-	// CPUID.(EAX=01H, ECX=0H):ECX.OSXSAVE[bit 27]==1
-	regs := [4]uint32{0x01}
-	cpuidAMD64(&regs[0])
-	if regs[2]&osXsaveBit == 0 {
-		return false
-	}
+	const aesniBit = 1 << 25
 
 	// Check for AES-NI support.
 	// CPUID.(EAX=01H, ECX=0H):ECX.AESNI[bit 25]==1
+	regs := [4]uint32{0x01}
+	cpuidAMD64(&regs[0])
+
 	return regs[2]&aesniBit != 0
 }
 
