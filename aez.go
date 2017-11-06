@@ -36,6 +36,7 @@ var (
 	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
 	newAes           aesImplCtor = nil
 	zero                         = [blockSize]byte{}
+	isHardwareAccelerated        = false
 )
 
 func extract(k []byte, extractedKey *[extractedKeySize]byte) {
@@ -591,6 +592,12 @@ func Decrypt(key []byte, nonce []byte, additionalData [][]byte, tau int, ciphert
 		return nil, false
 	}
 	return dst, true
+}
+
+// IsHardwareAccelerated returns true iff the AEZ implementation will use
+// hardware acceleration (eg: AES-NI).
+func IsHardwareAccelerated() bool {
+	return isHardwareAccelerated
 }
 
 func memwipe(b []byte) {

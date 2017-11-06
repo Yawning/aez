@@ -116,5 +116,6 @@ func platformInit() {
 	useAESNI = supportsAESNI()
 	if useAESNI {
 		newAes = newRoundAESNI
+		isHardwareAccelerated = true
 	}
 }
