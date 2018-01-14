@@ -21,7 +21,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/minio/blake2b-simd"
+	"golang.org/x/crypto/blake2b"
 )
 
 const (
@@ -33,17 +33,16 @@ const (
 )
 
 var (
-	extractBlake2Cfg             = &blake2b.Config{Size: extractedKeySize}
-	newAes           aesImplCtor = nil
-	zero                         = [blockSize]byte{}
-	isHardwareAccelerated        = false
+	newAes                aesImplCtor = nil
+	zero                              = [blockSize]byte{}
+	isHardwareAccelerated             = false
 )
 
 func extract(k []byte, extractedKey *[extractedKeySize]byte) {
 	if len(k) == extractedKeySize {
 		copy(extractedKey[:], k)
 	} else {
-		h, err := blake2b.New(extractBlake2Cfg)
+		h, err := blake2b.New(extractedKeySize, nil)
 		if err != nil {
 			panic("aez: Extract: " + err.Error())
 		}
