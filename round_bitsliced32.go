@@ -7,7 +7,7 @@
 
 package aez
 
-import "git.schwanenlied.me/yawning/bsaes.git/ct32"
+import "github.com/yawning/bsaes/ct32"
 
 type roundB32 struct {
 	skey [32]uint32 // I, J, L, 0
