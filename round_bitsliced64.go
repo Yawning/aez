@@ -7,7 +7,7 @@
 
 package aez
 
-import "git.schwanenlied.me/yawning/bsaes.git/ct64"
+import "gitlab.com/yawning/bsaes.git/ct64"
 
 type roundB64 struct {
 	skey [32]uint64 // I, J, L, 0
